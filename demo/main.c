@@ -18,4 +18,5 @@ int main(void) {
     }
 
     qbeCompile(QBE_TARGET_DEFAULT, f, stdout);
+    fclose(f);
 }
