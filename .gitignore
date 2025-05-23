@@ -2,5 +2,6 @@
 lib/
 demo/*
 !demo/main.c
+!demo/pipe.c
 !demo/build.sh
 !demo/README.md
