@@ -6,4 +6,4 @@
 $ ./build.sh
 ```
 
-See the provided [demo](demo/) for usage details.
+See the provided [demo/](demo/) for usage details.

@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 typedef enum {
+    QBE_TARGET_DEFAULT,
     QBE_TARGET_AMD64_SYSV,
     QBE_TARGET_AMD64_APPLE,
     QBE_TARGET_ARM64,

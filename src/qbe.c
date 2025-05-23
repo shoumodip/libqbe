@@ -98,6 +98,22 @@ static void dbgfile(char *fn) {
 
 void qbeCompile(QbeTarget target, FILE *input, FILE *output) {
     switch (target) {
+    case QBE_TARGET_DEFAULT:
+#if defined(__APPLE__) && defined(__x86_64__)
+        T = T_amd64_apple;
+#elif defined(__APPLE__) && defined(__aarch64__)
+        T = T_arm64_apple;
+#elif defined(__x86_64__)
+        T = T_amd64_sysv;
+#elif defined(__aarch64__)
+        T = T_arm64;
+#elif defined(__riscv) && __riscv_xlen == 64
+        T = T_rv64;
+#else
+#    error "Unknown or unsupported architecture"
+#endif
+        break;
+
     case QBE_TARGET_AMD64_SYSV:
         T = T_amd64_sysv;
         break;

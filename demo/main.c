@@ -17,5 +17,5 @@ int main(void) {
         perror("fmemopen");
     }
 
-    qbeCompile(QBE_TARGET_AMD64_SYSV, f, stdout);
+    qbeCompile(QBE_TARGET_DEFAULT, f, stdout);
 }

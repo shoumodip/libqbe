@@ -1,3 +1,6 @@
 *.o
-/lib/
-/demo/main
+lib/
+demo/*
+!demo/main.c
+!demo/build.sh
+!demo/README.md
