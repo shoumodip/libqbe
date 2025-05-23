@@ -1,0 +1,65 @@
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        arch: [x86_64, arm64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Linux archive
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
+        run: |
+          name="libqbe-linux-${{ matrix.arch }}"
+
+          mkdir $name
+          mv lib include $name
+          zip -r $name.zip $name
+
+      - name: macOS archive
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'macos-latest'
+        run: |
+          name="libqbe-macos-${{ matrix.arch }}"
+
+          mkdir $name
+          mv lib include $name
+          zip -r $name.zip $name
+
+      - name: Upload build artifacts
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{ matrix.arch }}-build
+          path: |
+            libqbe-linux-${{ matrix.arch }}.zip
+            libqbe-macos-${{ matrix.arch }}.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ubuntu-latest-x86_64-build/libqbe-linux-x86_64.zip
+            ubuntu-latest-arm64-build/libqbe-linux-arm64.zip
+            macos-latest-x86_64-build/libqbe-macos-x86_64.zip
+            macos-latest-arm64-build/libqbe-macos-arm64.zip
