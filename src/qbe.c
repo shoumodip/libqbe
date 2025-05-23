@@ -24,9 +24,8 @@ extern Target T_arm64;
 extern Target T_arm64_apple;
 extern Target T_rv64;
 
-static Target *tlist[] = {&T_amd64_sysv, &T_amd64_apple, &T_arm64, &T_arm64_apple, &T_rv64, 0};
-static FILE   *outf;
-static int     dbg;
+static FILE *outf;
+static int   dbg;
 
 static void data(Dat *d) {
     if (dbg) return;

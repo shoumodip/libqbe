@@ -2,7 +2,7 @@
 
 set -e
 
-CFLAGS=-std=c99
+CFLAGS="-Wall -Wextra -O3 -std=c99 -g"
 SRCDIR=$PWD/src
 
 mkdir -p lib

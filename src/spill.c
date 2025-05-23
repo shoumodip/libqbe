@@ -326,7 +326,7 @@ void
 spill(Fn *fn)
 {
 	Blk *b, *s1, *s2, *hd, **bp;
-	int j, l, t, k, lvarg[2];
+	int j, l, t, k, lvarg[2] = {0};
 	uint n;
 	BSet u[1], v[1], w[1];
 	Ins *i;
