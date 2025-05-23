@@ -113,11 +113,11 @@ void qbeCompile(QbeTarget target, FILE *input, FILE *output) {
 #endif
         break;
 
-    case QBE_TARGET_AMD64_SYSV:
+    case QBE_TARGET_X86_64_SYSV:
         T = T_amd64_sysv;
         break;
 
-    case QBE_TARGET_AMD64_APPLE:
+    case QBE_TARGET_X86_64_APPLE:
         T = T_amd64_apple;
         break;
 
