@@ -1,6 +1,10 @@
 # Quick Start
 ```console
-$ ./build.sh
+$ make
+```
+
+## With Assembly Artifacts
+```
 $ ./main > hello.s
 $ cc -o hello hello.s
 $ ./hello

@@ -3,7 +3,7 @@
 
 ## Quick Start
 ```console
-$ ./build.sh
+$ make
 ```
 
 See the provided [demo/](demo/) for usage details.
