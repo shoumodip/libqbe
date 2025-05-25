@@ -1,4 +1,4 @@
-#include "../include/qbe.h"
+#include "qbe.h"
 #include "all.h"
 
 #include <getopt.h>
