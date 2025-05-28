@@ -1,4 +1,4 @@
 LIBS = -L../lib -lqbe
 
 main: main.c
-	cc -o $@ $< $(LIBS)
+	cc -g -o $@ $< $(LIBS)

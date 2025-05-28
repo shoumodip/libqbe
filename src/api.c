@@ -29,7 +29,7 @@
 #define SVFmt    "%.*s"
 #define SVArg(s) (int) ((s).count), ((s).data)
 
-__attribute__((format(printf, 2, 3))) static void sb_fmt(Qbe *q, const char *fmt, ...) {
+static __attribute__((format(printf, 2, 3))) void sb_fmt(Qbe *q, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     const int n = vsnprintf(NULL, 0, fmt, args);
@@ -42,6 +42,13 @@ __attribute__((format(printf, 2, 3))) static void sb_fmt(Qbe *q, const char *fmt
     vsnprintf(q->sb.data + q->sb.count, n + 1, fmt, args);
     q->sb.count += n;
     va_end(args);
+}
+
+static void local_assert(Qbe *q, bool local, const char *label) {
+    if (q->local != local) {
+        fprintf(stderr, "ERROR: Unexpected %s in %s scope\n", label, q->local ? "local" : "global");
+        abort();
+    }
 }
 
 static_assert(QBE_COUNT_TYPES == 4, "");
@@ -181,6 +188,8 @@ QbeValue qbe_emit_str(Qbe *q, QbeSV sv) {
 }
 
 QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_types, size_t arity) {
+    local_assert(q, false, "function");
+
     QbeValue func = {0};
     func.kind = QBE_VALUE_GLOBAL;
     func.type.kind = QBE_TYPE_PTR;
@@ -221,6 +230,8 @@ QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_typ
 }
 
 QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *args, size_t arity) {
+    local_assert(q, true, "call");
+
     QbeValue call = {0};
     call.kind = QBE_VALUE_LOCAL;
     call.type = return_type;
@@ -252,6 +263,8 @@ QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *arg
 
 static_assert(QBE_COUNT_UNARYS == 3, "");
 QbeValue qbe_emit_unary(Qbe *q, QbeUnary op, QbeType type, QbeValue operand) {
+    local_assert(q, true, "unary operation");
+
     QbeValue unary = {0};
     unary.kind = QBE_VALUE_LOCAL;
     unary.type = type;
@@ -291,6 +304,8 @@ QbeValue qbe_emit_unary(Qbe *q, QbeUnary op, QbeType type, QbeValue operand) {
 
 static_assert(QBE_COUNT_BINARYS == 23, "");
 QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeValue rhs) {
+    local_assert(q, true, "binary operation");
+
     QbeValue binary = {0};
     binary.kind = QBE_VALUE_LOCAL;
     binary.type = type;
@@ -417,24 +432,30 @@ QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeVa
 }
 
 QbeBlock qbe_new_block(Qbe *q) {
+    local_assert(q, true, "block");
     return (QbeBlock) {.iota = q->block_iota++};
 }
 
 void qbe_emit_block(Qbe *q, QbeBlock block) {
+    local_assert(q, true, "block");
     sb_fmt(q, "@.%zu\n", block.iota);
 }
 
 void qbe_emit_jump(Qbe *q, QbeBlock block) {
+    local_assert(q, true, "jump");
     sb_fmt(q, "jmp @.%zu\n", block.iota);
 }
 
 void qbe_emit_branch(Qbe *q, QbeValue cond, QbeBlock then_block, QbeBlock else_block) {
+    local_assert(q, true, "branch");
     sb_fmt(q, "jnz ");
     sb_value(q, cond);
     sb_fmt(q, ", @.%zu, @.%zu\n", then_block.iota, else_block.iota);
 }
 
 void qbe_emit_return(Qbe *q, QbeValue *value) {
+    local_assert(q, true, "return");
+
     sb_fmt(q, "ret");
     if (value) {
         sb_fmt(q, " ");
@@ -445,6 +466,8 @@ void qbe_emit_return(Qbe *q, QbeValue *value) {
 }
 
 void qbe_emit_func_end(Qbe *q) {
+    local_assert(q, true, "end of function");
+
     sb_fmt(q, "}\n");
     q->local = false;
 

@@ -4,7 +4,6 @@
 
 int main(void) {
     Qbe qbe = {0};
-
     qbe_emit_func(&qbe, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32), NULL, 0);
 
     QbeValue func = qbe_value_import(qbe_sv_from_cstr("puts"), qbe_type_basic(QBE_TYPE_PTR));
