@@ -22,7 +22,7 @@
 #define QBE_H
 
 #include <stdbool.h>
-#include <stdio.h>
+#include <stddef.h>
 
 typedef struct {
     const char *data;
@@ -86,6 +86,47 @@ void qbe_free(Qbe *q);
 QbeValue qbe_emit_str(Qbe *q, QbeSV sv);
 QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_types, size_t arity);
 QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *args, size_t arity);
+
+typedef enum {
+    QBE_UNARY_NEG,
+    QBE_UNARY_BNOT,
+    QBE_UNARY_LNOT,
+    QBE_COUNT_UNARYS
+} QbeUnary;
+
+QbeValue qbe_emit_unary(Qbe *q, QbeUnary op, QbeType type, QbeValue operand);
+
+typedef enum {
+    QBE_BINARY_ADD,
+    QBE_BINARY_SUB,
+    QBE_BINARY_MUL,
+    QBE_BINARY_SDIV,
+    QBE_BINARY_UDIV,
+    QBE_BINARY_SMOD,
+    QBE_BINARY_UMOD,
+
+    QBE_BINARY_OR,
+    QBE_BINARY_AND,
+    QBE_BINARY_XOR,
+    QBE_BINARY_SHL,
+    QBE_BINARY_SSHR,
+    QBE_BINARY_USHR,
+
+    QBE_BINARY_SGT,
+    QBE_BINARY_UGT,
+    QBE_BINARY_SGE,
+    QBE_BINARY_UGE,
+    QBE_BINARY_SLT,
+    QBE_BINARY_ULT,
+    QBE_BINARY_SLE,
+    QBE_BINARY_ULE,
+    QBE_BINARY_EQ,
+    QBE_BINARY_NE,
+
+    QBE_COUNT_BINARYS
+} QbeBinary;
+
+QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeValue rhs);
 
 void qbe_emit_return(Qbe *q, QbeValue *value);
 void qbe_emit_func_end(Qbe *q);

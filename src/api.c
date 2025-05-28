@@ -20,6 +20,7 @@
 
 #include <ctype.h>
 #include <stdarg.h>
+#include <stdio.h>
 
 #include "da.h"
 #include "qbe.h"
@@ -45,6 +46,22 @@ __attribute__((format(printf, 2, 3))) static void sb_fmt(Qbe *q, const char *fmt
 
 static_assert(QBE_COUNT_TYPES == 4, "");
 static void sb_type(Qbe *q, QbeType type) {
+    switch (type.kind) {
+    case QBE_TYPE_I32:
+        sb_fmt(q, "w");
+        break;
+
+    case QBE_TYPE_I64:
+    case QBE_TYPE_PTR:
+        sb_fmt(q, "l");
+        break;
+
+    default:
+        assert(false && "unreachable");
+    }
+}
+
+static void sb_type_ssa(Qbe *q, QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I32:
         sb_fmt(q, "w");
@@ -134,7 +151,7 @@ QbeValue qbe_emit_str(Qbe *q, QbeSV sv) {
 
     sb_fmt(q, "data ");
     sb_value(q, str);
-    sb_fmt(q, " = align 1 { b \"");
+    sb_fmt(q, " = { b \"");
 
     for (size_t i = 0; i < sv.count; i++) {
         const char it = sv.data[i];
@@ -200,7 +217,7 @@ QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *arg
 
         sb_value(q, call);
         sb_fmt(q, " =");
-        sb_type(q, return_type);
+        sb_type_ssa(q, return_type);
         sb_fmt(q, " ");
     }
 
@@ -218,6 +235,172 @@ QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *arg
     sb_fmt(q, ")\n");
 
     return call;
+}
+
+static_assert(QBE_COUNT_UNARYS == 3, "");
+QbeValue qbe_emit_unary(Qbe *q, QbeUnary op, QbeType type, QbeValue operand) {
+    QbeValue unary = {0};
+    unary.kind = QBE_VALUE_LOCAL;
+    unary.type = type;
+    unary.iota = local_iota++;
+
+    sb_value(q, unary);
+    sb_fmt(q, " =");
+    sb_type_ssa(q, type);
+    sb_fmt(q, " ");
+
+    switch (op) {
+    case QBE_UNARY_NEG:
+        sb_fmt(q, "neg ");
+        sb_value(q, operand);
+        sb_fmt(q, "\n");
+        break;
+
+    case QBE_UNARY_BNOT:
+        // QBE doesn't support binary NOT smh
+        sb_fmt(q, "xor ");
+        sb_value(q, operand);
+        sb_fmt(q, ", 18446744073709551615\n");
+        break;
+
+    case QBE_UNARY_LNOT:
+        sb_fmt(q, "ceqw ");
+        sb_value(q, operand);
+        sb_fmt(q, ", 0\n");
+        break;
+
+    default:
+        assert(false && "unreachable");
+    }
+
+    return unary;
+}
+
+static_assert(QBE_COUNT_BINARYS == 23, "");
+QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeValue rhs) {
+    QbeValue binary = {0};
+    binary.kind = QBE_VALUE_LOCAL;
+    binary.type = type;
+    binary.iota = local_iota++;
+
+    sb_value(q, binary);
+    sb_fmt(q, " =");
+    sb_type_ssa(q, type);
+    sb_fmt(q, " ");
+
+    switch (op) {
+    case QBE_BINARY_ADD:
+        sb_fmt(q, "add");
+        break;
+
+    case QBE_BINARY_SUB:
+        sb_fmt(q, "sub");
+        break;
+
+    case QBE_BINARY_MUL:
+        sb_fmt(q, "mul");
+        break;
+
+    case QBE_BINARY_SDIV:
+        sb_fmt(q, "div");
+        break;
+
+    case QBE_BINARY_UDIV:
+        sb_fmt(q, "udiv");
+        break;
+
+    case QBE_BINARY_SMOD:
+        sb_fmt(q, "rem");
+        break;
+
+    case QBE_BINARY_UMOD:
+        sb_fmt(q, "urem");
+        break;
+
+    case QBE_BINARY_OR:
+        sb_fmt(q, "or");
+        break;
+
+    case QBE_BINARY_AND:
+        sb_fmt(q, "and");
+        break;
+
+    case QBE_BINARY_XOR:
+        sb_fmt(q, "xor");
+        break;
+
+    case QBE_BINARY_SHL:
+        sb_fmt(q, "shl");
+        break;
+
+    case QBE_BINARY_SSHR:
+        sb_fmt(q, "sar");
+        break;
+
+    case QBE_BINARY_USHR:
+        sb_fmt(q, "shr");
+        break;
+
+    case QBE_BINARY_SGT:
+        sb_fmt(q, "csgt");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_UGT:
+        sb_fmt(q, "cugt");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_SGE:
+        sb_fmt(q, "csge");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_UGE:
+        sb_fmt(q, "cuge");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_SLT:
+        sb_fmt(q, "cslt");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_ULT:
+        sb_fmt(q, "cult");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_SLE:
+        sb_fmt(q, "csle");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_ULE:
+        sb_fmt(q, "cule");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_EQ:
+        sb_fmt(q, "ceq");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    case QBE_BINARY_NE:
+        sb_fmt(q, "cne");
+        sb_type_ssa(q, lhs.type);
+        break;
+
+    default:
+        assert(false && "unreachable");
+    }
+
+    sb_fmt(q, " ");
+    sb_value(q, lhs);
+    sb_fmt(q, ", ");
+    sb_value(q, rhs);
+    sb_fmt(q, "\n");
+    return binary;
 }
 
 void qbe_emit_return(Qbe *q, QbeValue *value) {
