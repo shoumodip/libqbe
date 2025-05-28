@@ -474,4 +474,5 @@ void qbe_emit_func_end(Qbe *q) {
     for (size_t i = 0; i < q->local_strs.count; i++) {
         emit_str(q, q->local_strs.data[i]);
     }
+    q->local_strs.count = 0;
 }
