@@ -1,18 +1,18 @@
 #include "all.h"
 
 Blk *
-newblk()
+qbe_newblk()
 {
 	static Blk z;
 	Blk *b;
 
-	b = alloc(sizeof *b);
+	b = qbe_alloc(sizeof *b);
 	*b = z;
 	return b;
 }
 
 void
-edgedel(Blk *bs, Blk **pbd)
+qbe_edgedel(Blk *bs, Blk **pbd)
 {
 	Blk *bd;
 	Phi *p;
@@ -46,7 +46,7 @@ static void
 addpred(Blk *bp, Blk *bc)
 {
 	if (!bc->pred) {
-		bc->pred = alloc(bc->npred * sizeof bc->pred[0]);
+		bc->pred = qbe_alloc(bc->npred * sizeof bc->pred[0]);
 		bc->visit = 0;
 	}
 	bc->pred[bc->visit++] = bp;
@@ -54,7 +54,7 @@ addpred(Blk *bp, Blk *bc)
 
 /* fill predecessors information in blocks */
 void
-fillpreds(Fn *f)
+qbe_fillpreds(Fn *f)
 {
 	Blk *b;
 
@@ -99,7 +99,7 @@ rporec(Blk *b, uint x)
 
 /* fill the rpo information */
 void
-fillrpo(Fn *f)
+qbe_fillrpo(Fn *f)
 {
 	uint n;
 	Blk *b, **p;
@@ -108,11 +108,11 @@ fillrpo(Fn *f)
 		b->id = -1u;
 	n = 1 + rporec(f->start, f->nblk-1);
 	f->nblk -= n;
-	f->rpo = alloc(f->nblk * sizeof f->rpo[0]);
+	f->rpo = qbe_alloc(f->nblk * sizeof f->rpo[0]);
 	for (p=&f->start; (b=*p);) {
 		if (b->id == -1u) {
-			edgedel(b, &b->s1);
-			edgedel(b, &b->s2);
+			qbe_edgedel(b, &b->s1);
+			qbe_edgedel(b, &b->s2);
 			*p = b->link;
 		} else {
 			b->id -= n;
@@ -149,7 +149,7 @@ inter(Blk *b1, Blk *b2)
 }
 
 void
-filldom(Fn *fn)
+qbe_filldom(Fn *fn)
 {
 	Blk *b, *d;
 	int ch;
@@ -184,7 +184,7 @@ filldom(Fn *fn)
 }
 
 int
-sdom(Blk *b1, Blk *b2)
+qbe_sdom(Blk *b1, Blk *b2)
 {
 	assert(b1 && b2);
 	if (b1 == b2)
@@ -195,9 +195,9 @@ sdom(Blk *b1, Blk *b2)
 }
 
 int
-dom(Blk *b1, Blk *b2)
+qbe_dom(Blk *b1, Blk *b2)
 {
-	return b1 == b2 || sdom(b1, b2);
+	return b1 == b2 || qbe_sdom(b1, b2);
 }
 
 static void
@@ -209,15 +209,15 @@ addfron(Blk *a, Blk *b)
 		if (a->fron[n] == b)
 			return;
 	if (!a->nfron)
-		a->fron = vnew(++a->nfron, sizeof a->fron[0], PFn);
+		a->fron = qbe_vnew(++a->nfron, sizeof a->fron[0], PFn);
 	else
-		vgrow(&a->fron, ++a->nfron);
+		qbe_vgrow(&a->fron, ++a->nfron);
 	a->fron[a->nfron-1] = b;
 }
 
 /* fill the dominance frontier */
 void
-fillfron(Fn *fn)
+qbe_fillfron(Fn *fn)
 {
 	Blk *a, *b;
 
@@ -225,10 +225,10 @@ fillfron(Fn *fn)
 		b->nfron = 0;
 	for (b=fn->start; b; b=b->link) {
 		if (b->s1)
-			for (a=b; !sdom(a, b->s1); a=a->idom)
+			for (a=b; !qbe_sdom(a, b->s1); a=a->idom)
 				addfron(a, b->s1);
 		if (b->s2)
-			for (a=b; !sdom(a, b->s2); a=a->idom)
+			for (a=b; !qbe_sdom(a, b->s2); a=a->idom)
 				addfron(a, b->s2);
 	}
 }
@@ -247,7 +247,7 @@ loopmark(Blk *hd, Blk *b, void f(Blk *, Blk *))
 }
 
 void
-loopiter(Fn *fn, void f(Blk *, Blk *))
+qbe_loopiter(Fn *fn, void f(Blk *, Blk *))
 {
 	uint n, p;
 	Blk *b;
@@ -263,20 +263,20 @@ loopiter(Fn *fn, void f(Blk *, Blk *))
 }
 
 void
-multloop(Blk *hd, Blk *b)
+qbe_multloop(Blk *hd, Blk *b)
 {
 	(void)hd;
 	b->loop *= 10;
 }
 
 void
-fillloop(Fn *fn)
+qbe_fillloop(Fn *fn)
 {
 	Blk *b;
 
 	for (b=fn->start; b; b=b->link)
 		b->loop = 1;
-	loopiter(fn, multloop);
+	qbe_loopiter(fn, qbe_multloop);
 }
 
 static void
@@ -293,16 +293,16 @@ uffind(Blk **pb, Blk **uf)
 
 /* requires rpo and no phis, breaks cfg */
 void
-simpljmp(Fn *fn)
+qbe_simpljmp(Fn *fn)
 {
 
 	Blk **uf; /* union-find */
 	Blk **p, *b, *ret;
 
-	ret = newblk();
+	ret = qbe_newblk();
 	ret->id = fn->nblk++;
 	ret->jmp.type = Jret0;
-	uf = emalloc(fn->nblk * sizeof uf[0]);
+	uf = qbe_emalloc(fn->nblk * sizeof uf[0]);
 	for (b=fn->start; b; b=b->link) {
 		assert(!b->phi);
 		if (b->jmp.type == Jret0) {

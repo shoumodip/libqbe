@@ -18,14 +18,14 @@ blit(Ref sd[2], int sz, Fn *fn)
 	for (p=tbl; sz; p++)
 		for (n=p->size; sz>=n; sz-=n) {
 			off -= fwd ? n : 0;
-			r = newtmp("blt", Kl, fn);
-			r1 = newtmp("blt", Kl, fn);
-			ro = getcon(off, fn);
-			emit(p->st, 0, R, r, r1);
-			emit(Oadd, Kl, r1, sd[1], ro);
-			r1 = newtmp("blt", Kl, fn);
-			emit(p->ld, p->cls, r, r1, R);
-			emit(Oadd, Kl, r1, sd[0], ro);
+			r = qbe_newtmp("blt", Kl, fn);
+			r1 = qbe_newtmp("blt", Kl, fn);
+			ro = qbe_getcon(off, fn);
+			qbe_emit(p->st, 0, R, r, r1);
+			qbe_emit(Oadd, Kl, r1, sd[1], ro);
+			r1 = qbe_newtmp("blt", Kl, fn);
+			qbe_emit(p->ld, p->cls, r, r1, R);
+			qbe_emit(Oadd, Kl, r1, sd[0], ro);
 			off += fwd ? 0 : n;
 		}
 }
@@ -45,10 +45,10 @@ ins(Ins **pi, int *new, Blk *b, Fn *fn)
 		assert(i > b->ins);
 		assert((i-1)->op == Oblit0);
 		if (!*new) {
-			curi = &insb[NIns];
+			qbe_curi = &qbe_insb[NIns];
 			ni = &b->ins[b->nins] - (i+1);
-			curi -= ni;
-			icpy(curi, i+1, ni);
+			qbe_curi -= ni;
+			qbe_icpy(qbe_curi, i+1, ni);
 			*new = 1;
 		}
 		blit((i-1)->arg, rsval(i->arg[0]), fn);
@@ -56,13 +56,13 @@ ins(Ins **pi, int *new, Blk *b, Fn *fn)
 		break;
 	default:
 		if (*new)
-			emiti(*i);
+			qbe_emiti(*i);
 		break;
 	}
 }
 
 void
-simpl(Fn *fn)
+qbe_simpl(Fn *fn)
 {
 	Blk *b;
 	Ins *i;
@@ -75,8 +75,8 @@ simpl(Fn *fn)
 			ins(&i, &new, b, fn);
 		}
 		if (new) {
-			b->nins = &insb[NIns] - curi;
-			idup(&b->ins, curi, b->nins);
+			b->nins = &qbe_insb[NIns] - qbe_curi;
+			qbe_idup(&b->ins, qbe_curi, b->nins);
 		}
 	}
 }

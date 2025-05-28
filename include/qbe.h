@@ -12,6 +12,6 @@ typedef enum {
     QBE_TARGET_RV64
 } QbeTarget;
 
-void qbeCompile(QbeTarget target, FILE *input, FILE *output);
+void qbe_compile(QbeTarget target, FILE *input, FILE *output);
 
 #endif // QBE_H

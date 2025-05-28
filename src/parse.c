@@ -14,7 +14,7 @@ enum {
 	Km = Kl, /* memory pointer */
 };
 
-Op optab[NOp] = {
+Op qbe_optab[NOp] = {
 #define O(op, t, cf) [O##op]={#op, t, cf},
 	#include "ops.h"
 };
@@ -160,7 +160,7 @@ static int rcls;
 static uint ntyp;
 
 void
-err(char *s, ...)
+qbe_err(char *s, ...)
 {
 	va_list ap;
 
@@ -182,12 +182,12 @@ lexinit()
 	if (done)
 		return;
 	for (i=0; i<NPubOp; ++i)
-		if (optab[i].name)
-			kwmap[i] = optab[i].name;
+		if (qbe_optab[i].name)
+			kwmap[i] = qbe_optab[i].name;
 	assert(Ntok <= UCHAR_MAX);
 	for (i=0; i<Ntok; ++i)
 		if (kwmap[i]) {
-			h = hash(kwmap[i])*K >> M;
+			h = qbe_hash(kwmap[i])*K >> M;
 			assert(lexh[h] == Txxx);
 			lexh[h] = i;
 		}
@@ -285,14 +285,14 @@ lex()
 	if (c == '"') {
 		t = Tstr;
 	Quoted:
-		tokval.str = vnew(2, 1, PFn);
+		tokval.str = qbe_vnew(2, 1, PFn);
 		tokval.str[0] = c;
 		esc = 0;
 		for (i=1;; i++) {
 			c = fgetc(inf);
 			if (c == EOF)
-				err("unterminated string");
-			vgrow(&tokval.str, i+2);
+				qbe_err("unterminated string");
+			qbe_vgrow(&tokval.str, i+2);
 			tokval.str[i] = c;
 			if (c == '"' && !esc) {
 				tokval.str[i+1] = 0;
@@ -303,11 +303,11 @@ lex()
 	}
 Alpha:
 	if (!isalpha(c) && c != '.' && c != '_')
-		err("invalid character %c (%d)", c, c);
+		qbe_err("invalid character %c (%d)", c, c);
 	i = 0;
 	do {
 		if (i >= NString-1)
-			err("identifier too long");
+			qbe_err("identifier too long");
 		tok[i++] = c;
 		c = fgetc(inf);
 	} while (isalpha(c) || c == '$' || c == '.' || c == '_' || isdigit(c));
@@ -317,9 +317,9 @@ Alpha:
 	if (t != Txxx) {
 		return t;
 	}
-	t = lexh[hash(tok)*K >> M];
+	t = lexh[qbe_hash(tok)*K >> M];
 	if (t == Txxx || strcmp(kwmap[t], tok) != 0) {
-		err("unknown keyword %s", tok);
+		qbe_err("unknown keyword %s", tok);
 		return Txxx;
 	}
 	return t;
@@ -376,7 +376,7 @@ expect(int t)
 	s1 = ttoa[t] ? ttoa[t] : "??";
 	s2 = ttoa[t1] ? ttoa[t1] : "??";
 	sprintf(buf, "%s expected, got %s instead", s1, s2);
-	err(buf);
+	qbe_err(buf);
 }
 
 static Ref
@@ -384,7 +384,7 @@ tmpref(char *v)
 {
 	int t, *h;
 
-	h = &tmph[hash(v) & TMask];
+	h = &tmph[qbe_hash(v) & TMask];
 	t = *h;
 	if (t) {
 		if (strcmp(curf->tmp[t].name, v) == 0)
@@ -395,7 +395,7 @@ tmpref(char *v)
 	}
 	t = curf->ntmp;
 	*h = t;
-	newtmp(0, Kx, curf);
+	qbe_newtmp(0, Kx, curf);
 	strcpy(curf->tmp[t].name, v);
 	return TMP(t);
 }
@@ -431,19 +431,19 @@ parseref()
 		/* fall through */
 	case Tglo:
 		c.type = CAddr;
-		c.sym.id = intern(tokval.str);
+		c.sym.id = qbe_intern(tokval.str);
 		break;
 	}
-	return newcon(&c, curf);
+	return qbe_newcon(&c, curf);
 }
 
 static int
 findtyp(int i)
 {
 	while (--i >= 0)
-		if (strcmp(tokval.str, typ[i].name) == 0)
+		if (strcmp(tokval.str, qbe_typ[i].name) == 0)
 			return i;
-	err("undefined type :%s", tokval.str);
+	qbe_err("undefined type :%s", tokval.str);
 }
 
 static int
@@ -451,7 +451,7 @@ parsecls(int *tyn)
 {
 	switch (next()) {
 	default:
-		err("invalid class specifier");
+		qbe_err("invalid class specifier");
 	case Ttyp:
 		*tyn = findtyp(ntyp);
 		return Kc;
@@ -484,24 +484,24 @@ parserefl(int arg)
 	vararg = 0;
 	expect(Tlparen);
 	while (peek() != Trparen) {
-		if (curi - insb >= NIns)
-			err("too many instructions");
+		if (qbe_curi - qbe_insb >= NIns)
+			qbe_err("too many instructions");
 		if (!arg && vararg)
-			err("no parameters allowed after '...'");
+			qbe_err("no parameters allowed after '...'");
 		switch (peek()) {
 		case Tdots:
 			if (vararg)
-				err("only one '...' allowed");
+				qbe_err("only one '...' allowed");
 			vararg = 1;
 			if (arg) {
-				*curi = (Ins){.op = Oargv};
-				curi++;
+				*qbe_curi = (Ins){.op = Oargv};
+				qbe_curi++;
 			}
 			next();
 			goto Next;
 		case Tenv:
 			if (hasenv)
-				err("only one environment allowed");
+				qbe_err("only one environment allowed");
 			hasenv = 1;
 			env = 1;
 			next();
@@ -514,30 +514,30 @@ parserefl(int arg)
 		}
 		r = parseref();
 		if (req(r, R))
-			err("invalid argument");
+			qbe_err("invalid argument");
 		if (!arg && rtype(r) != RTmp)
-			err("invalid function parameter");
+			qbe_err("invalid function parameter");
 		if (env)
 			if (arg)
-				*curi = (Ins){Oarge, k, R, {r}};
+				*qbe_curi = (Ins){Oarge, k, R, {r}};
 			else
-				*curi = (Ins){Opare, k, r, {R}};
+				*qbe_curi = (Ins){Opare, k, r, {R}};
 		else if (k == Kc)
 			if (arg)
-				*curi = (Ins){Oargc, Kl, R, {TYPE(ty), r}};
+				*qbe_curi = (Ins){Oargc, Kl, R, {TYPE(ty), r}};
 			else
-				*curi = (Ins){Oparc, Kl, r, {TYPE(ty)}};
+				*qbe_curi = (Ins){Oparc, Kl, r, {TYPE(ty)}};
 		else if (k >= Ksb)
 			if (arg)
-				*curi = (Ins){Oargsb+(k-Ksb), Kw, R, {r}};
+				*qbe_curi = (Ins){Oargsb+(k-Ksb), Kw, R, {r}};
 			else
-				*curi = (Ins){Oparsb+(k-Ksb), Kw, r, {R}};
+				*qbe_curi = (Ins){Oparsb+(k-Ksb), Kw, r, {R}};
 		else
 			if (arg)
-				*curi = (Ins){Oarg, k, R, {r}};
+				*qbe_curi = (Ins){Oarg, k, R, {r}};
 			else
-				*curi = (Ins){Opar, k, r, {R}};
-		curi++;
+				*qbe_curi = (Ins){Opar, k, r, {R}};
+		qbe_curi++;
 	Next:
 		if (peek() == Trparen)
 			break;
@@ -553,11 +553,11 @@ findblk(char *name)
 	Blk *b;
 	uint32_t h;
 
-	h = hash(name) & BMask;
+	h = qbe_hash(name) & BMask;
 	for (b=blkh[h]; b; b=b->dlink)
 		if (strcmp(b->name, name) == 0)
 			return b;
-	b = newblk();
+	b = qbe_newblk();
 	b->id = nblk++;
 	strcpy(b->name, name);
 	b->dlink = blkh[h];
@@ -568,10 +568,10 @@ findblk(char *name)
 static void
 closeblk()
 {
-	curb->nins = curi - insb;
-	idup(&curb->ins, insb, curb->nins);
+	curb->nins = qbe_curi - qbe_insb;
+	qbe_idup(&curb->ins, qbe_insb, curb->nins);
 	blink = &curb->link;
-	curi = insb;
+	qbe_curi = qbe_insb;
 }
 
 static PState
@@ -587,7 +587,7 @@ parseline(PState ps)
 
 	t = nextnl();
 	if (ps == PLbl && t != Tlbl && t != Trbrace)
-		err("label or } expected");
+		qbe_err("label or } expected");
 	switch (t) {
 	case Ttmp:
 		r = tmpref(tokval.str);
@@ -606,7 +606,7 @@ parseline(PState ps)
 			op = t;
 			break;
 		}
-		err("label, instruction or jump expected");
+		qbe_err("label, instruction or jump expected");
 	case Trbrace:
 		return PEnd;
 	case Tlbl:
@@ -617,7 +617,7 @@ parseline(PState ps)
 			curb->s1 = b;
 		}
 		if (b->jmp.type != Jxxx)
-			err("multiple definitions of block @%s", b->name);
+			qbe_err("multiple definitions of block @%s", b->name);
 		*blink = b;
 		curb = b;
 		plink = &curb->phi;
@@ -630,7 +630,7 @@ parseline(PState ps)
 		else if (rcls != K0) {
 			r = parseref();
 			if (req(r, R))
-				err("invalid return value");
+				qbe_err("invalid return value");
 			curb->jmp.arg = r;
 		}
 		goto Close;
@@ -641,7 +641,7 @@ parseline(PState ps)
 		curb->jmp.type = Jjnz;
 		r = parseref();
 		if (req(r, R))
-			err("invalid argument for jnz jump");
+			qbe_err("invalid argument for jnz jump");
 		curb->jmp.arg = r;
 		expect(Tcomma);
 	Jump:
@@ -653,7 +653,7 @@ parseline(PState ps)
 			curb->s2 = findblk(tokval.str);
 		}
 		if (curb->s1 == curf->start || curb->s2 == curf->start)
-			err("invalid jump to the start block");
+			qbe_err("invalid jump to the start block");
 		goto Close;
 	case Thlt:
 		curb->jmp.type = Jhlt;
@@ -668,13 +668,13 @@ parseline(PState ps)
 		expect(Tint);
 		arg[0] = INT(tokval.num);
 		if (arg[0].val != tokval.num)
-			err("line number too big");
+			qbe_err("line number too big");
 		if (peek() == Tcomma) {
 			next();
 			expect(Tint);
 			arg[1] = INT(tokval.num);
 			if (arg[1].val != tokval.num)
-				err("column number too big");
+				qbe_err("column number too big");
 		} else
 			arg[1] = INT(0);
 		goto Ins;
@@ -699,77 +699,77 @@ parseline(PState ps)
 	if (op == Talloc1 || op == Talloc2)
 		op = Oalloc;
 	if (op == Ovastart && !curf->vararg)
-		err("cannot use vastart in non-variadic function");
+		qbe_err("cannot use vastart in non-variadic function");
 	if (k >= Ksb)
-		err("size class must be w, l, s, or d");
+		qbe_err("size class must be w, l, s, or d");
 	i = 0;
 	if (peek() != Tnl)
 		for (;;) {
 			if (i == NPred)
-				err("too many arguments");
+				qbe_err("too many arguments");
 			if (op == Tphi) {
 				expect(Tlbl);
 				blk[i] = findblk(tokval.str);
 			}
 			arg[i] = parseref();
 			if (req(arg[i], R))
-				err("invalid instruction argument");
+				qbe_err("invalid instruction argument");
 			i++;
 			t = peek();
 			if (t == Tnl)
 				break;
 			if (t != Tcomma)
-				err(", or end of line expected");
+				qbe_err(", or end of line expected");
 			next();
 		}
 	next();
 	switch (op) {
 	case Tphi:
 		if (ps != PPhi || curb == curf->start)
-			err("unexpected phi instruction");
-		phi = alloc(sizeof *phi);
+			qbe_err("unexpected phi instruction");
+		phi = qbe_alloc(sizeof *phi);
 		phi->to = r;
 		phi->cls = k;
-		phi->arg = vnew(i, sizeof arg[0], PFn);
+		phi->arg = qbe_vnew(i, sizeof arg[0], PFn);
 		memcpy(phi->arg, arg, i * sizeof arg[0]);
-		phi->blk = vnew(i, sizeof blk[0], PFn);
+		phi->blk = qbe_vnew(i, sizeof blk[0], PFn);
 		memcpy(phi->blk, blk, i * sizeof blk[0]);
 		phi->narg = i;
 		*plink = phi;
 		plink = &phi->link;
 		return PPhi;
 	case Tblit:
-		if (curi - insb >= NIns-1)
-			err("too many instructions");
-		memset(curi, 0, 2 * sizeof(Ins));
-		curi->op = Oblit0;
-		curi->arg[0] = arg[0];
-		curi->arg[1] = arg[1];
-		curi++;
+		if (qbe_curi - qbe_insb >= NIns-1)
+			qbe_err("too many instructions");
+		memset(qbe_curi, 0, 2 * sizeof(Ins));
+		qbe_curi->op = Oblit0;
+		qbe_curi->arg[0] = arg[0];
+		qbe_curi->arg[1] = arg[1];
+		qbe_curi++;
 		if (rtype(arg[2]) != RCon)
-			err("blit size must be constant");
+			qbe_err("blit size must be constant");
 		c = &curf->con[arg[2].val];
 		r = INT(c->bits.i);
 		if (c->type != CBits
 		|| rsval(r) < 0
 		|| rsval(r) != c->bits.i)
-			err("invalid blit size");
-		curi->op = Oblit1;
-		curi->arg[0] = r;
-		curi++;
+			qbe_err("invalid blit size");
+		qbe_curi->op = Oblit1;
+		qbe_curi->arg[0] = r;
+		qbe_curi++;
 		return PIns;
 	default:
 		if (op >= NPubOp)
-			err("invalid instruction");
+			qbe_err("invalid instruction");
 	Ins:
-		if (curi - insb >= NIns)
-			err("too many instructions");
-		curi->op = op;
-		curi->cls = k;
-		curi->to = r;
-		curi->arg[0] = arg[0];
-		curi->arg[1] = arg[1];
-		curi++;
+		if (qbe_curi - qbe_insb >= NIns)
+			qbe_err("too many instructions");
+		qbe_curi->op = op;
+		qbe_curi->cls = k;
+		qbe_curi->to = r;
+		qbe_curi->arg[0] = arg[0];
+		qbe_curi->arg[1] = arg[1];
+		qbe_curi++;
 		return PIns;
 	}
 }
@@ -793,62 +793,62 @@ typecheck(Fn *fn)
 	Ref r;
 	BSet pb[1], ppb[1];
 
-	fillpreds(fn);
-	bsinit(pb, fn->nblk);
-	bsinit(ppb, fn->nblk);
+	qbe_fillpreds(fn);
+	qbe_bsinit(pb, fn->nblk);
+	qbe_bsinit(ppb, fn->nblk);
 	for (b=fn->start; b; b=b->link) {
 		for (p=b->phi; p; p=p->link)
 			fn->tmp[p->to.val].cls = p->cls;
 		for (i=b->ins; i<&b->ins[b->nins]; i++)
 			if (rtype(i->to) == RTmp) {
 				t = &fn->tmp[i->to.val];
-				if (clsmerge(&t->cls, i->cls))
-					err("temporary %%%s is assigned with"
+				if (qbe_clsmerge(&t->cls, i->cls))
+					qbe_err("temporary %%%s is assigned with"
 						" multiple types", t->name);
 			}
 	}
 	for (b=fn->start; b; b=b->link) {
-		bszero(pb);
+		qbe_bszero(pb);
 		for (n=0; n<b->npred; n++)
-			bsset(pb, b->pred[n]->id);
+			qbe_bsset(pb, b->pred[n]->id);
 		for (p=b->phi; p; p=p->link) {
-			bszero(ppb);
+			qbe_bszero(ppb);
 			t = &fn->tmp[p->to.val];
 			for (n=0; n<p->narg; n++) {
 				k = t->cls;
 				if (bshas(ppb, p->blk[n]->id))
-					err("multiple entries for @%s in phi %%%s",
+					qbe_err("multiple entries for @%s in phi %%%s",
 						p->blk[n]->name, t->name);
 				if (!usecheck(p->arg[n], k, fn))
-					err("invalid type for operand %%%s in phi %%%s",
+					qbe_err("invalid type for operand %%%s in phi %%%s",
 						fn->tmp[p->arg[n].val].name, t->name);
-				bsset(ppb, p->blk[n]->id);
+				qbe_bsset(ppb, p->blk[n]->id);
 			}
-			if (!bsequal(pb, ppb))
-				err("predecessors not matched in phi %%%s", t->name);
+			if (!qbe_bsequal(pb, ppb))
+				qbe_err("predecessors not matched in phi %%%s", t->name);
 		}
 		for (i=b->ins; i<&b->ins[b->nins]; i++)
 			for (n=0; n<2; n++) {
-				k = optab[i->op].argcls[n][i->cls];
+				k = qbe_optab[i->op].argcls[n][i->cls];
 				r = i->arg[n];
 				t = &fn->tmp[r.val];
 				if (k == Ke)
-					err("invalid instruction type in %s",
-						optab[i->op].name);
+					qbe_err("invalid instruction type in %s",
+						qbe_optab[i->op].name);
 				if (rtype(r) == RType)
 					continue;
 				if (rtype(r) != -1 && k == Kx)
-					err("no %s operand expected in %s",
+					qbe_err("no %s operand expected in %s",
 						n == 1 ? "second" : "first",
-						optab[i->op].name);
+						qbe_optab[i->op].name);
 				if (rtype(r) == -1 && k != Kx)
-					err("missing %s operand in %s",
+					qbe_err("missing %s operand in %s",
 						n == 1 ? "second" : "first",
-						optab[i->op].name);
+						qbe_optab[i->op].name);
 				if (!usecheck(r, k, fn))
-					err("invalid type for %s operand %%%s in %s",
+					qbe_err("invalid type for %s operand %%%s in %s",
 						n == 1 ? "second" : "first",
-						t->name, optab[i->op].name);
+						t->name, qbe_optab[i->op].name);
 			}
 		r = b->jmp.arg;
 		if (isret(b->jmp.type)) {
@@ -863,12 +863,12 @@ typecheck(Fn *fn)
 		}
 		if (b->jmp.type == Jjnz && !usecheck(r, Kw, fn))
 		JErr:
-			err("invalid type for jump argument %%%s in block @%s",
+			qbe_err("invalid type for jump argument %%%s in block @%s",
 				fn->tmp[r.val].name, b->name);
 		if (b->s1 && b->s1->jmp.type == Jxxx)
-			err("block @%s is used undefined", b->s1->name);
+			qbe_err("block @%s is used undefined", b->s1->name);
 		if (b->s2 && b->s2->jmp.type == Jxxx)
-			err("block @%s is used undefined", b->s2->name);
+			qbe_err("block @%s is used undefined", b->s2->name);
 	}
 }
 
@@ -881,17 +881,17 @@ parsefn(Lnk *lnk)
 
 	curb = 0;
 	nblk = 0;
-	curi = insb;
-	curf = alloc(sizeof *curf);
+	qbe_curi = qbe_insb;
+	curf = qbe_alloc(sizeof *curf);
 	curf->ntmp = 0;
 	curf->ncon = 2;
-	curf->tmp = vnew(curf->ntmp, sizeof curf->tmp[0], PFn);
-	curf->con = vnew(curf->ncon, sizeof curf->con[0], PFn);
+	curf->tmp = qbe_vnew(curf->ntmp, sizeof curf->tmp[0], PFn);
+	curf->con = qbe_vnew(curf->ncon, sizeof curf->con[0], PFn);
 	for (i=0; i<Tmp0; ++i)
-		if (T.fpr0 <= i && i < T.fpr0 + T.nfpr)
-			newtmp(0, Kd, curf);
+		if (qbe_T.fpr0 <= i && i < qbe_T.fpr0 + qbe_T.nfpr)
+			qbe_newtmp(0, Kd, curf);
 		else
-			newtmp(0, Kl, curf);
+			qbe_newtmp(0, Kl, curf);
 	curf->con[0].type = CBits;
 	curf->con[0].bits.i = 0xdeaddead;  /* UNDEF */
 	curf->con[1].type = CBits;
@@ -903,20 +903,20 @@ parsefn(Lnk *lnk)
 	else
 		rcls = K0;
 	if (next() != Tglo)
-		err("function name expected");
+		qbe_err("function name expected");
 	strncpy(curf->name, tokval.str, NString-1);
 	curf->vararg = parserefl(0);
 	if (nextnl() != Tlbrace)
-		err("function body must start with {");
+		qbe_err("function body must start with {");
 	ps = PLbl;
 	do
 		ps = parseline(ps);
 	while (ps != PEnd);
 	if (!curb)
-		err("empty function");
+		qbe_err("empty function");
 	if (curb->jmp.type == Jxxx)
-		err("last block misses jump");
-	curf->mem = vnew(0, sizeof curf->mem[0], PFn);
+		qbe_err("last block misses jump");
+	curf->mem = qbe_vnew(0, sizeof curf->mem[0], PFn);
 	curf->nmem = 0;
 	curf->nblk = nblk;
 	curf->rpo = 0;
@@ -942,7 +942,7 @@ parsefields(Field *fld, Typ *ty, int t)
 	while (t != Trbrace) {
 		ty1 = 0;
 		switch (t) {
-		default: err("invalid type member specifier");
+		default: qbe_err("invalid type member specifier");
 		case Td: type = Fd; s = 8; a = 3; break;
 		case Tl: type = Fl; s = 8; a = 3; break;
 		case Ts: type = Fs; s = 4; a = 2; break;
@@ -951,7 +951,7 @@ parsefields(Field *fld, Typ *ty, int t)
 		case Tb: type = Fb; s = 1; a = 0; break;
 		case Ttyp:
 			type = FTyp;
-			ty1 = &typ[findtyp(ntyp-1)];
+			ty1 = &qbe_typ[findtyp(ntyp-1)];
 			s = ty1->size;
 			a = ty1->align;
 			break;
@@ -976,7 +976,7 @@ parsefields(Field *fld, Typ *ty, int t)
 			c = 1;
 		sz += a + c*s;
 		if (type == FTyp)
-			s = ty1 - typ;
+			s = ty1 - qbe_typ;
 		for (; c>0 && n<NField; c--, n++) {
 			fld[n].type = type;
 			fld[n].len = s;
@@ -986,7 +986,7 @@ parsefields(Field *fld, Typ *ty, int t)
 		t = nextnl();
 	}
 	if (t != Trbrace)
-		err(", or } expected");
+		qbe_err(", or } expected");
 	fld[n].type = FEnd;
 	a = 1 << al;
 	if (sz < ty->size)
@@ -1006,44 +1006,44 @@ parsetyp()
 	 * to handle nested types, any pointer
 	 * held to typ[] might be invalidated!
 	 */
-	vgrow(&typ, ntyp+1);
-	ty = &typ[ntyp++];
+	qbe_vgrow(&qbe_typ, ntyp+1);
+	ty = &qbe_typ[ntyp++];
 	ty->isdark = 0;
 	ty->isunion = 0;
 	ty->align = -1;
 	ty->size = 0;
 	if (nextnl() != Ttyp ||  nextnl() != Teq)
-		err("type name and then = expected");
+		qbe_err("type name and then = expected");
 	strcpy(ty->name, tokval.str);
 	t = nextnl();
 	if (t == Talign) {
 		if (nextnl() != Tint)
-			err("alignment expected");
+			qbe_err("alignment expected");
 		for (al=0; tokval.num /= 2; al++)
 			;
 		ty->align = al;
 		t = nextnl();
 	}
 	if (t != Tlbrace)
-		err("type body must start with {");
+		qbe_err("type body must start with {");
 	t = nextnl();
 	if (t == Tint) {
 		ty->isdark = 1;
 		ty->size = tokval.num;
 		if (ty->align == -1)
-			err("dark types need alignment");
+			qbe_err("dark types need alignment");
 		if (nextnl() != Trbrace)
-			err("} expected");
+			qbe_err("} expected");
 		return;
 	}
 	n = 0;
-	ty->fields = vnew(1, sizeof ty->fields[0], PHeap);
+	ty->fields = qbe_vnew(1, sizeof ty->fields[0], PHeap);
 	if (t == Tlbrace) {
 		ty->isunion = 1;
 		do {
 			if (t != Tlbrace)
-				err("invalid union member");
-			vgrow(&ty->fields, n+1);
+				qbe_err("invalid union member");
+			qbe_vgrow(&ty->fields, n+1);
 			parsefields(ty->fields[n++], ty, nextnl());
 			t = nextnl();
 		} while (t != Trbrace);
@@ -1064,7 +1064,7 @@ parsedatref(Dat *d)
 	if (t == Tplus) {
 		next();
 		if (next() != Tint)
-			err("invalid token after offset in ref");
+			qbe_err("invalid token after offset in ref");
 		d->u.ref.off = tokval.num;
 	}
 }
@@ -1084,13 +1084,13 @@ parsedat(void cb(Dat *), Lnk *lnk)
 	Dat d;
 
 	if (nextnl() != Tglo || nextnl() != Teq)
-		err("data name, then = expected");
+		qbe_err("data name, then = expected");
 	strncpy(name, tokval.str, NString-1);
 	t = nextnl();
 	lnk->align = 8;
 	if (t == Talign) {
 		if (nextnl() != Tint)
-			err("alignment expected");
+			qbe_err("alignment expected");
 		lnk->align = tokval.num;
 		t = nextnl();
 	}
@@ -1100,10 +1100,10 @@ parsedat(void cb(Dat *), Lnk *lnk)
 	cb(&d);
 
 	if (t != Tlbrace)
-		err("expected data contents in { .. }");
+		qbe_err("expected data contents in { .. }");
 	for (;;) {
 		switch (nextnl()) {
-		default: err("invalid size specifier %c in data", tokval.chr);
+		default: qbe_err("invalid size specifier %c in data", tokval.chr);
 		case Trbrace: goto Done;
 		case Tl: d.type = DL; break;
 		case Tw: d.type = DW; break;
@@ -1129,14 +1129,14 @@ parsedat(void cb(Dat *), Lnk *lnk)
 			else if (t == Tstr)
 				parsedatstr(&d);
 			else
-				err("constant literal expected");
+				qbe_err("constant literal expected");
 			cb(&d);
 			t = nextnl();
 		} while (t == Tint || t == Tflts || t == Tfltd || t == Tstr || t == Tglo);
 		if (t == Trbrace)
 			break;
 		if (t != Tcomma)
-			err(", or } expected");
+			qbe_err(", or } expected");
 	}
 Done:
 	d.type = DEnd;
@@ -1158,9 +1158,9 @@ parselnk(Lnk *lnk)
 			break;
 		case Tsection:
 			if (lnk->sec)
-				err("only one section allowed");
+				qbe_err("only one section allowed");
 			if (next() != Tstr)
-				err("section \"name\" expected");
+				qbe_err("section \"name\" expected");
 			lnk->sec = tokval.str;
 			if (peek() == Tstr) {
 				next();
@@ -1169,15 +1169,15 @@ parselnk(Lnk *lnk)
 			break;
 		default:
 			if (t == Tfunc && lnk->thread)
-				err("only data may have thread linkage");
+				qbe_err("only data may have thread linkage");
 			if (haslnk && t != Tdata && t != Tfunc)
-				err("only data and function have linkage");
+				qbe_err("only data and function have linkage");
 			return t;
 		}
 }
 
 void
-parse(FILE *f, char *path, void dbgfile(char *), void data(Dat *), void func(Fn *))
+qbe_parse(FILE *f, char *path, void dbgfile(char *), void data(Dat *), void func(Fn *))
 {
 	Lnk lnk;
 	uint n;
@@ -1188,12 +1188,12 @@ parse(FILE *f, char *path, void dbgfile(char *), void data(Dat *), void func(Fn 
 	lnum = 1;
 	thead = Txxx;
 	ntyp = 0;
-	typ = vnew(0, sizeof typ[0], PHeap);
+	qbe_typ = qbe_vnew(0, sizeof qbe_typ[0], PHeap);
 	for (;;) {
 		lnk = (Lnk){0};
 		switch (parselnk(&lnk)) {
 		default:
-			err("top-level definition expected");
+			qbe_err("top-level definition expected");
 		case Tdbgfile:
 			expect(Tstr);
 			dbgfile(tokval.str);
@@ -1209,9 +1209,9 @@ parse(FILE *f, char *path, void dbgfile(char *), void data(Dat *), void func(Fn 
 			break;
 		case Teof:
 			for (n=0; n<ntyp; n++)
-				if (typ[n].nunion)
-					vfree(typ[n].fields);
-			vfree(typ);
+				if (qbe_typ[n].nunion)
+					qbe_vfree(qbe_typ[n].fields);
+			qbe_vfree(qbe_typ);
 			return;
 		}
 	}
@@ -1226,7 +1226,7 @@ printcon(Con *c, FILE *f)
 	case CAddr:
 		if (c->sym.type == SThr)
 			fprintf(f, "thread ");
-		fprintf(f, "$%s", str(c->sym.id));
+		fprintf(f, "$%s", qbe_str(c->sym.id));
 		if (c->bits.i)
 			fprintf(f, "%+"PRIi64, c->bits.i);
 		break;
@@ -1242,7 +1242,7 @@ printcon(Con *c, FILE *f)
 }
 
 void
-printref(Ref r, Fn *fn, FILE *f)
+qbe_printref(Ref r, Fn *fn, FILE *f)
 {
 	int i;
 	Mem *m;
@@ -1267,7 +1267,7 @@ printref(Ref r, Fn *fn, FILE *f)
 		fprintf(f, "%04x", r.val);
 		break;
 	case RType:
-		fprintf(f, ":%s", typ[r.val].name);
+		fprintf(f, ":%s", qbe_typ[r.val].name);
 		break;
 	case RMem:
 		i = 0;
@@ -1280,14 +1280,14 @@ printref(Ref r, Fn *fn, FILE *f)
 		if (!req(m->base, R)) {
 			if (i)
 				fprintf(f, " + ");
-			printref(m->base, fn, f);
+			qbe_printref(m->base, fn, f);
 			i = 1;
 		}
 		if (!req(m->index, R)) {
 			if (i)
 				fprintf(f, " + ");
 			fprintf(f, "%d * ", m->scale);
-			printref(m->index, fn, f);
+			qbe_printref(m->index, fn, f);
 		}
 		fputc(']', f);
 		break;
@@ -1298,7 +1298,7 @@ printref(Ref r, Fn *fn, FILE *f)
 }
 
 void
-printfn(Fn *fn, FILE *f)
+qbe_printfn(Fn *fn, FILE *f)
 {
 	static char ktoc[] = "wlsd";
 	static char *jtoa[NJmp] = {
@@ -1316,12 +1316,12 @@ printfn(Fn *fn, FILE *f)
 		fprintf(f, "@%s\n", b->name);
 		for (p=b->phi; p; p=p->link) {
 			fprintf(f, "\t");
-			printref(p->to, fn, f);
+			qbe_printref(p->to, fn, f);
 			fprintf(f, " =%c phi ", ktoc[p->cls]);
 			assert(p->narg);
 			for (n=0;; n++) {
 				fprintf(f, "@%s ", p->blk[n]->name);
-				printref(p->arg[n], fn, f);
+				qbe_printref(p->arg[n], fn, f);
 				if (n == p->narg-1) {
 					fprintf(f, "\n");
 					break;
@@ -1332,11 +1332,11 @@ printfn(Fn *fn, FILE *f)
 		for (i=b->ins; i<&b->ins[b->nins]; i++) {
 			fprintf(f, "\t");
 			if (!req(i->to, R)) {
-				printref(i->to, fn, f);
+				qbe_printref(i->to, fn, f);
 				fprintf(f, " =%c ", ktoc[i->cls]);
 			}
-			assert(optab[i->op].name);
-			fprintf(f, "%s", optab[i->op].name);
+			assert(qbe_optab[i->op].name);
+			fprintf(f, "%s", qbe_optab[i->op].name);
 			if (req(i->to, R))
 				switch (i->op) {
 				case Oarg:
@@ -1352,11 +1352,11 @@ printfn(Fn *fn, FILE *f)
 				}
 			if (!req(i->arg[0], R)) {
 				fprintf(f, " ");
-				printref(i->arg[0], fn, f);
+				qbe_printref(i->arg[0], fn, f);
 			}
 			if (!req(i->arg[1], R)) {
 				fprintf(f, ", ");
-				printref(i->arg[1], fn, f);
+				qbe_printref(i->arg[1], fn, f);
 			}
 			fprintf(f, "\n");
 		}
@@ -1374,10 +1374,10 @@ printfn(Fn *fn, FILE *f)
 			fprintf(f, "\t%s", jtoa[b->jmp.type]);
 			if (b->jmp.type != Jret0 || !req(b->jmp.arg, R)) {
 				fprintf(f, " ");
-				printref(b->jmp.arg, fn, f);
+				qbe_printref(b->jmp.arg, fn, f);
 			}
 			if (b->jmp.type == Jretc)
-				fprintf(f, ", :%s", typ[fn->retty].name);
+				fprintf(f, ", :%s", qbe_typ[fn->retty].name);
 			fprintf(f, "\n");
 			break;
 		case Jhlt:
@@ -1390,7 +1390,7 @@ printfn(Fn *fn, FILE *f)
 		default:
 			fprintf(f, "\t%s ", jtoa[b->jmp.type]);
 			if (b->jmp.type == Jjnz) {
-				printref(b->jmp.arg, fn, f);
+				qbe_printref(b->jmp.arg, fn, f);
 				fprintf(f, ", ");
 			}
 			assert(b->s1 && b->s2);

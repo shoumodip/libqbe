@@ -76,8 +76,8 @@ phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Fn *fn)
 	Ref r1;
 	Phi *p0;
 
-	bszero(ts);
-	bszero(as);
+	qbe_bszero(ts);
+	qbe_bszero(as);
 	p0 = &(Phi){.narg = 0};
 	stk = *pstk;
 	nstk = 1;
@@ -96,25 +96,25 @@ phisimpl(Phi *p, Ref r, Ref *cpy, Use ***pstk, BSet *ts, BSet *as, Fn *fn)
 			continue;
 		if (bshas(ts, t))
 			continue;
-		bsset(ts, t);
+		qbe_bsset(ts, t);
 		for (a=0; a<p->narg; a++) {
 			r1 = copyof(p->arg[a], cpy);
 			if (req(r1, r))
 				continue;
 			if (rtype(r1) != RTmp)
 				return;
-			bsset(as, r1.val);
+			qbe_bsset(as, r1.val);
 		}
 		u = fn->tmp[t].use;
 		u1 = &u[fn->tmp[t].nuse];
-		vgrow(pstk, nstk+(u1-u));
+		qbe_vgrow(pstk, nstk+(u1-u));
 		stk = *pstk;
 		for (; u<u1; u++)
 			stk[nstk++] = u;
 	}
-	bsdiff(as, ts);
-	if (!bscount(as))
-		for (t=0; bsiter(ts, &t); t++)
+	qbe_bsdiff(as, ts);
+	if (!qbe_bscount(as))
+		for (t=0; qbe_bsiter(ts, &t); t++)
 			cpy[t] = r;
 }
 
@@ -127,7 +127,7 @@ subst(Ref *pr, Ref *cpy)
 
 /* requires use and dom, breaks use */
 void
-copy(Fn *fn)
+qbe_copy(Fn *fn)
 {
 	BSet ts[1], as[1];
 	Use **stk;
@@ -138,10 +138,10 @@ copy(Fn *fn)
 	Ref *cpy, r, r1;
 	int t;
 
-	bsinit(ts, fn->ntmp);
-	bsinit(as, fn->ntmp);
-	cpy = emalloc(fn->ntmp * sizeof cpy[0]);
-	stk = vnew(10, sizeof stk[0], PHeap);
+	qbe_bsinit(ts, fn->ntmp);
+	qbe_bsinit(as, fn->ntmp);
+	cpy = qbe_emalloc(fn->ntmp * sizeof cpy[0]);
+	stk = qbe_vnew(10, sizeof stk[0], PHeap);
 
 	/* 1. build the copy-of map */
 	for (n=0; n<fn->nblk; n++) {
@@ -162,7 +162,7 @@ copy(Fn *fn)
 				}
 			assert(!req(r, R));
 			if (rtype(r) == RTmp
-			&& !dom(fn->rpo[fn->tmp[r.val].bid], b))
+			&& !qbe_dom(fn->rpo[fn->tmp[r.val].bid], b))
 				cpy[p->to.val] = p->to;
 			else if (eq == p->narg)
 				cpy[p->to.val] = r;
@@ -208,7 +208,7 @@ copy(Fn *fn)
 		subst(&b->jmp.arg, cpy);
 	}
 
-	if (debug['C']) {
+	if (qbe_debug['C']) {
 		fprintf(stderr, "\n> Copy information:");
 		for (t=Tmp0; t<fn->ntmp; t++) {
 			if (req(cpy[t], R)) {
@@ -218,12 +218,12 @@ copy(Fn *fn)
 			else if (!req(cpy[t], TMP(t))) {
 				fprintf(stderr, "\n%10s copy of ",
 					fn->tmp[t].name);
-				printref(cpy[t], fn, stderr);
+				qbe_printref(cpy[t], fn, stderr);
 			}
 		}
 		fprintf(stderr, "\n\n> After copy elimination:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
-	vfree(stk);
+	qbe_vfree(stk);
 	free(cpy);
 }

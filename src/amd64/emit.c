@@ -60,7 +60,7 @@ enum {
 static struct {
 	short op;
 	short cls;
-	char *asm;
+	char *asm_;
 } omap[] = {
 	{ Oadd,    Ka, "+add%k %1, %=" },
 	{ Osub,    Ka, "-sub%k %1, %=" },
@@ -164,10 +164,10 @@ emitcon(Con *con, FILE *f)
 
 	switch (con->type) {
 	case CAddr:
-		l = str(con->sym.id);
-		p = l[0] == '"' ? "" : T.assym;
+		l = qbe_str(con->sym.id);
+		p = l[0] == '"' ? "" : qbe_T.assym;
 		if (con->sym.type == SThr) {
-			if (T.apple)
+			if (qbe_T.apple)
 				fprintf(f, "%s%s@TLVP", p, l);
 			else
 				fprintf(f, "%%fs:%s%s@tpoff", p, l);
@@ -281,7 +281,7 @@ Next:
 		ref = getarg(c, i);
 		switch (rtype(ref)) {
 		case RTmp:
-			assert(isreg(ref));
+			assert(qbe_isreg(ref));
 			fprintf(f, "%%%s", regtoa(ref.val, sz));
 			break;
 		case RSlot:
@@ -293,7 +293,7 @@ Next:
 			if (rtype(m->base) == RSlot) {
 				off.type = CBits;
 				off.bits.i = slot(m->base, fn);
-				addcon(&m->offset, &off);
+				qbe_addcon(&m->offset, &off);
 				m->base = TMP(RBP);
 			}
 			if (m->offset.type != CUndef)
@@ -343,11 +343,11 @@ Next:
 			off = fn->con[ref.val];
 			emitcon(&off, f);
 			if (off.type == CAddr)
-			if (off.sym.type != SThr || T.apple)
+			if (off.sym.type != SThr || qbe_T.apple)
 				fprintf(f, "(%%rip)");
 			break;
 		case RTmp:
-			assert(isreg(ref));
+			assert(qbe_isreg(ref));
 			fprintf(f, "(%%%s)", regtoa(ref.val, SLong));
 			break;
 		default:
@@ -386,14 +386,14 @@ emitins(Ins i, Fn *fn, FILE *f)
 			 * search */
 			if (omap[o].op == NOp)
 				die("no match for %s(%c)",
-					optab[i.op].name, "wlsd"[i.cls]);
+					qbe_optab[i.op].name, "wlsd"[i.cls]);
 			if (omap[o].op == i.op)
 			if (omap[o].cls == i.cls
 			|| (omap[o].cls == Ki && KBASE(i.cls) == 0)
 			|| (omap[o].cls == Ka))
 				break;
 		}
-		emitf(omap[o].asm, &i, fn, f);
+		emitf(omap[o].asm_, &i, fn, f);
 		break;
 	case Onop:
 		/* just do nothing for nops, they are inserted
@@ -433,8 +433,8 @@ emitins(Ins i, Fn *fn, FILE *f)
 			fprintf(f,
 				"\txorp%c %sfp%d(%%rip), %%%s\n",
 				"xxsd"[i.cls],
-				T.asloc,
-				stashbits(negmask[i.cls], 16),
+				qbe_T.asloc,
+				qbe_stashbits(negmask[i.cls], 16),
 				regtoa(i.to.val, SLong)
 			);
 		break;
@@ -462,7 +462,7 @@ emitins(Ins i, Fn *fn, FILE *f)
 		&& t0 == RCon
 		&& fn->con[i.arg[0].val].type == CBits) {
 			val = fn->con[i.arg[0].val].bits.i;
-			if (isreg(i.to))
+			if (qbe_isreg(i.to))
 			if (val >= 0 && val <= UINT32_MAX) {
 				emitf("movl %W0, %W=", &i, fn, f);
 				break;
@@ -474,7 +474,7 @@ emitins(Ins i, Fn *fn, FILE *f)
 				break;
 			}
 		}
-		if (isreg(i.to)
+		if (qbe_isreg(i.to)
 		&& t0 == RCon
 		&& fn->con[i.arg[0].val].type == CAddr) {
 			emitf("lea%k %M0, %=", &i, fn, f);
@@ -493,17 +493,17 @@ emitins(Ins i, Fn *fn, FILE *f)
 		emitf("mov%k %0, %=", &i, fn, f);
 		break;
 	case Oaddr:
-		if (!T.apple
+		if (!qbe_T.apple
 		&& rtype(i.arg[0]) == RCon
 		&& fn->con[i.arg[0].val].sym.type == SThr) {
 			/* derive the symbol address from the TCB
 			 * address at offset 0 of %fs */
-			assert(isreg(i.to));
+			assert(qbe_isreg(i.to));
 			con = &fn->con[i.arg[0].val];
-			sym = str(con->sym.id);
+			sym = qbe_str(con->sym.id);
 			emitf("movq %%fs:0, %L=", &i, fn, f);
 			fprintf(f, "\tleaq %s%s@tpoff",
-				sym[0] == '"' ? "" : T.assym, sym);
+				sym[0] == '"' ? "" : qbe_T.assym, sym);
 			if (con->bits.i)
 				fprintf(f, "%+"PRId64, con->bits.i);
 			fprintf(f, "(%%%s), %%%s\n",
@@ -548,7 +548,7 @@ emitins(Ins i, Fn *fn, FILE *f)
 		emitcopy(i.arg[1], TMP(XMM0+15), i.cls, fn, f);
 		break;
 	case Odbgloc:
-		emitdbgloc(i.arg[0].val, i.arg[1].val, f);
+		qbe_emitdbgloc(i.arg[0].val, i.arg[1].val, f);
 		break;
 	}
 }
@@ -560,14 +560,14 @@ framesz(Fn *fn)
 
 	/* specific to NAlign == 3 */
 	for (i=0, o=0; i<NCLR; i++)
-		o ^= 1 & (fn->reg >> amd64_sysv_rclob[i]);
+		o ^= 1 & (fn->reg >> qbe_amd64_sysv_rclob[i]);
 	f = fn->slot;
 	f = (f + 3) & -4;
 	return 4*f + 8*o + 176*fn->vararg;
 }
 
 void
-amd64_emitfn(Fn *fn, FILE *f)
+qbe_amd64_emitfn(Fn *fn, FILE *f)
 {
 	static char *ctoa[] = {
 	#define X(c, s) [c] = s,
@@ -580,19 +580,19 @@ amd64_emitfn(Fn *fn, FILE *f)
 	int *r, c, o, n, lbl;
 	uint64_t fs;
 
-	emitfnlnk(fn->name, &fn->lnk, f);
+	qbe_emitfnlnk(fn->name, &fn->lnk, f);
 	fputs("\tpushq %rbp\n\tmovq %rsp, %rbp\n", f);
 	fs = framesz(fn);
 	if (fs)
 		fprintf(f, "\tsubq $%"PRIu64", %%rsp\n", fs);
 	if (fn->vararg) {
 		o = -176;
-		for (r=amd64_sysv_rsave; r<&amd64_sysv_rsave[6]; r++, o+=8)
+		for (r=qbe_amd64_sysv_rsave; r<&qbe_amd64_sysv_rsave[6]; r++, o+=8)
 			fprintf(f, "\tmovq %%%s, %d(%%rbp)\n", rname[*r][0], o);
 		for (n=0; n<8; ++n, o+=16)
 			fprintf(f, "\tmovaps %%xmm%d, %d(%%rbp)\n", n, o);
 	}
-	for (r=amd64_sysv_rclob; r<&amd64_sysv_rclob[NCLR]; r++)
+	for (r=qbe_amd64_sysv_rclob; r<&qbe_amd64_sysv_rclob[NCLR]; r++)
 		if (fn->reg & BIT(*r)) {
 			itmp.arg[0] = TMP(*r);
 			emitf("pushq %L0", &itmp, fn, f);
@@ -601,7 +601,7 @@ amd64_emitfn(Fn *fn, FILE *f)
 
 	for (lbl=0, b=fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
-			fprintf(f, "%sbb%d:\n", T.asloc, id0+b->id);
+			fprintf(f, "%sbb%d:\n", qbe_T.asloc, id0+b->id);
 		for (i=b->ins; i!=&b->ins[b->nins]; i++)
 			emitins(*i, fn, f);
 		lbl = 1;
@@ -616,7 +616,7 @@ amd64_emitfn(Fn *fn, FILE *f)
 					"\tsubq $%"PRIu64", %%rsp\n",
 					fs
 				);
-			for (r=&amd64_sysv_rclob[NCLR]; r>amd64_sysv_rclob;)
+			for (r=&qbe_amd64_sysv_rclob[NCLR]; r>qbe_amd64_sysv_rclob;)
 				if (fn->reg & BIT(*--r)) {
 					itmp.arg[0] = TMP(*r);
 					emitf("popq %L0", &itmp, fn, f);
@@ -630,7 +630,7 @@ amd64_emitfn(Fn *fn, FILE *f)
 		Jmp:
 			if (b->s1 != b->link)
 				fprintf(f, "\tjmp %sbb%d\n",
-					T.asloc, id0+b->s1->id);
+					qbe_T.asloc, id0+b->s1->id);
 			else
 				lbl = 0;
 			break;
@@ -642,15 +642,15 @@ amd64_emitfn(Fn *fn, FILE *f)
 					b->s1 = b->s2;
 					b->s2 = s;
 				} else
-					c = cmpneg(c);
+					c = qbe_cmpneg(c);
 				fprintf(f, "\tj%s %sbb%d\n", ctoa[c],
-					T.asloc, id0+b->s2->id);
+					qbe_T.asloc, id0+b->s2->id);
 				goto Jmp;
 			}
 			die("unhandled jump %d", b->jmp.type);
 		}
 	}
 	id0 += fn->nblk;
-	if (!T.apple)
-		elf_emitfnfin(fn->name, f);
+	if (!qbe_T.apple)
+		qbe_elf_emitfnfin(fn->name, f);
 }

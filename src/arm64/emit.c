@@ -37,7 +37,7 @@ enum {
 static struct {
 	short op;
 	short cls;
-	char *asm;
+	char *asm_;
 } omap[] = {
 	{ Oadd,    Ki, "add %=, %0, %1" },
 	{ Oadd,    Ka, "fadd %=, %0, %1" },
@@ -146,7 +146,7 @@ slot(Ref r, E *e)
 	if (s == -1)
 		return 16 + e->frame;
 	if (s < 0) {
-		if (e->fn->vararg && !T.apple)
+		if (e->fn->vararg && !qbe_T.apple)
 			return 16 + e->frame + 192 - (s+2);
 		else
 			return 16 + e->frame - (s+2);
@@ -201,7 +201,7 @@ emitf(char *s, Ins *i, E *e)
 		case '=':
 		case '0':
 			r = c == '=' ? i->to : i->arg[0];
-			assert(isreg(r));
+			assert(qbe_isreg(r));
 			fputs(rname(r.val, k), e->f);
 			break;
 		case '1':
@@ -210,7 +210,7 @@ emitf(char *s, Ins *i, E *e)
 			default:
 				die("invalid second argument");
 			case RTmp:
-				assert(isreg(r));
+				assert(qbe_isreg(r));
 				fputs(rname(r.val, k), e->f);
 				break;
 			case RCon:
@@ -232,7 +232,7 @@ emitf(char *s, Ins *i, E *e)
 			default:
 				die("todo (arm emit): unhandled ref");
 			case RTmp:
-				assert(isreg(r));
+				assert(qbe_isreg(r));
 				fprintf(e->f, "[%s]", rname(r.val, Kl));
 				break;
 			case RSlot:
@@ -253,7 +253,7 @@ loadaddr(Con *c, char *rn, E *e)
 	default:
 		die("unreachable");
 	case SGlo:
-		if (T.apple)
+		if (qbe_T.apple)
 			s = "\tadrp\tR, S@pageO\n"
 			    "\tadd\tR, R, S@pageoffO\n";
 		else
@@ -261,7 +261,7 @@ loadaddr(Con *c, char *rn, E *e)
 			    "\tadd\tR, R, #:lo12:SO\n";
 		break;
 	case SThr:
-		if (T.apple)
+		if (qbe_T.apple)
 			s = "\tadrp\tR, S@tlvppage\n"
 			    "\tldr\tR, [R, S@tlvppageoff]\n";
 		else
@@ -271,8 +271,8 @@ loadaddr(Con *c, char *rn, E *e)
 		break;
 	}
 
-	l = str(c->sym.id);
-	p = l[0] == '"' ? "" : T.assym;
+	l = qbe_str(c->sym.id);
+	p = l[0] == '"' ? "" : qbe_T.assym;
 	for (; *s; s++)
 		switch (*s) {
 		default:
@@ -310,7 +310,7 @@ loadcon(Con *c, int r, int k, E *e)
 	assert(c->type == CBits);
 	if (!w)
 		n = (int32_t)n;
-	if ((n | 0xffff) == -1 || arm64_logimm(n, k)) {
+	if ((n | 0xffff) == -1 || qbe_arm64_logimm(n, k)) {
 		fprintf(e->f, "\tmov\t%s, #%"PRIi64"\n", rn, n);
 	} else {
 		fprintf(e->f, "\tmov\t%s, #%d\n",
@@ -356,9 +356,9 @@ emitins(Ins *i, E *e)
 	switch (i->op) {
 	default:
 		if (isload(i->op))
-			fixarg(&i->arg[0], loadsz(i), e);
+			fixarg(&i->arg[0], qbe_loadsz(i), e);
 		if (isstore(i->op))
-			fixarg(&i->arg[1], storesz(i), e);
+			fixarg(&i->arg[1], qbe_storesz(i), e);
 	Table:
 		/* most instructions are just pulled out of
 		 * the table omap[], some special cases are
@@ -368,13 +368,13 @@ emitins(Ins *i, E *e)
 			 * search */
 			if (omap[o].op == NOp)
 				die("no match for %s(%c)",
-					optab[i->op].name, "wlsd"[i->cls]);
+					qbe_optab[i->op].name, "wlsd"[i->cls]);
 			if (omap[o].op == i->op)
 			if (omap[o].cls == i->cls || omap[o].cls == Ka
 			|| (omap[o].cls == Ki && KBASE(i->cls) == 0))
 				break;
 		}
-		emitf(omap[o].asm, i, e);
+		emitf(omap[o].asm_, i, e);
 		break;
 	case Onop:
 		break;
@@ -383,7 +383,7 @@ emitins(Ins *i, E *e)
 			break;
 		if (rtype(i->to) == RSlot) {
 			r = i->to;
-			if (!isreg(i->arg[0])) {
+			if (!qbe_isreg(i->arg[0])) {
 				i->to = TMP(R18);
 				emitins(i, e);
 				i->arg[0] = i->to;
@@ -394,7 +394,7 @@ emitins(Ins *i, E *e)
 			emitins(i, e);
 			break;
 		}
-		assert(isreg(i->to));
+		assert(qbe_isreg(i->to));
 		switch (rtype(i->arg[0])) {
 		case RCon:
 			c = &e->fn->con[i->arg[0].val];
@@ -437,8 +437,8 @@ emitins(Ins *i, E *e)
 		|| c->sym.type != SGlo
 		|| c->bits.i)
 			die("invalid call argument");
-		l = str(c->sym.id);
-		p = l[0] == '"' ? "" : T.assym;
+		l = qbe_str(c->sym.id);
+		p = l[0] == '"' ? "" : qbe_T.assym;
 		fprintf(e->f, "\tbl\t%s%s\n", p, l);
 		break;
 	case Osalloc:
@@ -447,7 +447,7 @@ emitins(Ins *i, E *e)
 			emitf("mov %=, sp", i, e);
 		break;
 	case Odbgloc:
-		emitdbgloc(i->arg[0].val, i->arg[1].val, e->f);
+		qbe_emitdbgloc(i->arg[0].val, i->arg[1].val, e->f);
 		break;
 	}
 }
@@ -459,7 +459,7 @@ framelayout(E *e)
 	uint o;
 	uint64_t f;
 
-	for (o=0, r=arm64_rclob; *r>=0; r++)
+	for (o=0, r=qbe_arm64_rclob; *r>=0; r++)
 		o += 1 & (e->fn->reg >> *r);
 	f = e->fn->slot;
 	f = (f + 3) & -4;
@@ -496,7 +496,7 @@ framelayout(E *e)
 */
 
 void
-arm64_emitfn(Fn *fn, FILE *out)
+qbe_arm64_emitfn(Fn *fn, FILE *out)
 {
 	static char *ctoa[] = {
 	#define X(c, s) [c] = s,
@@ -511,12 +511,12 @@ arm64_emitfn(Fn *fn, FILE *out)
 	E *e;
 
 	e = &(E){.f = out, .fn = fn};
-	if (T.apple)
+	if (qbe_T.apple)
 		e->fn->lnk.align = 4;
-	emitfnlnk(e->fn->name, &e->fn->lnk, e->f);
+	qbe_emitfnlnk(e->fn->name, &e->fn->lnk, e->f);
 	framelayout(e);
 
-	if (e->fn->vararg && !T.apple) {
+	if (e->fn->vararg && !qbe_T.apple) {
 		for (n=7; n>=0; n--)
 			fprintf(e->f, "\tstr\tq%d, [sp, -16]!\n", n);
 		for (n=7; n>=0; n-=2)
@@ -551,7 +551,7 @@ arm64_emitfn(Fn *fn, FILE *out)
 		);
 	fputs("\tmov\tx29, sp\n", e->f);
 	s = (e->frame - e->padding) / 4;
-	for (r=arm64_rclob; *r>=0; r++)
+	for (r=qbe_arm64_rclob; *r>=0; r++)
 		if (e->fn->reg & BIT(*r)) {
 			s -= 2;
 			i = &(Ins){.arg = {TMP(*r), SLOT(s)}};
@@ -561,7 +561,7 @@ arm64_emitfn(Fn *fn, FILE *out)
 
 	for (lbl=0, b=e->fn->start; b; b=b->link) {
 		if (lbl || b->npred > 1)
-			fprintf(e->f, "%s%d:\n", T.asloc, id0+b->id);
+			fprintf(e->f, "%s%d:\n", qbe_T.asloc, id0+b->id);
 		for (i=b->ins; i!=&b->ins[b->nins]; i++)
 			emitins(i, e);
 		lbl = 1;
@@ -571,7 +571,7 @@ arm64_emitfn(Fn *fn, FILE *out)
 			break;
 		case Jret0:
 			s = (e->frame - e->padding) / 4;
-			for (r=arm64_rclob; *r>=0; r++)
+			for (r=qbe_arm64_rclob; *r>=0; r++)
 				if (e->fn->reg & BIT(*r)) {
 					s -= 2;
 					i = &(Ins){Oload, 0, TMP(*r), {SLOT(s)}};
@@ -581,7 +581,7 @@ arm64_emitfn(Fn *fn, FILE *out)
 			if (e->fn->dynalloc)
 				fputs("\tmov sp, x29\n", e->f);
 			o = e->frame + 16;
-			if (e->fn->vararg && !T.apple)
+			if (e->fn->vararg && !qbe_T.apple)
 				o += 192;
 			if (o <= 504)
 				fprintf(e->f,
@@ -616,7 +616,7 @@ arm64_emitfn(Fn *fn, FILE *out)
 			if (b->s1 != b->link)
 				fprintf(e->f,
 					"\tb\t%s%d\n",
-					T.asloc, id0+b->s1->id
+					qbe_T.asloc, id0+b->s1->id
 				);
 			else
 				lbl = 0;
@@ -630,15 +630,15 @@ arm64_emitfn(Fn *fn, FILE *out)
 				b->s1 = b->s2;
 				b->s2 = t;
 			} else
-				c = cmpneg(c);
+				c = qbe_cmpneg(c);
 			fprintf(e->f,
 				"\tb%s\t%s%d\n",
-				ctoa[c], T.asloc, id0+b->s2->id
+				ctoa[c], qbe_T.asloc, id0+b->s2->id
 			);
 			goto Jmp;
 		}
 	}
 	id0 += e->fn->nblk;
-	if (!T.apple)
-		elf_emitfnfin(fn->name, out);
+	if (!qbe_T.apple)
+		qbe_elf_emitfnfin(fn->name, out);
 }

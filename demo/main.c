@@ -17,6 +17,6 @@ int main(void) {
         perror("fmemopen");
     }
 
-    qbeCompile(QBE_TARGET_DEFAULT, f, stdout);
+    qbe_compile(QBE_TARGET_DEFAULT, f, stdout);
     fclose(f);
 }

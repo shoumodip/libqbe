@@ -3,9 +3,9 @@
 
 #include <getopt.h>
 
-Target T;
+Target qbe_T;
 
-char debug['Z' + 1] = {
+char qbe_debug['Z' + 1] = {
     ['P'] = 0, /* parsing */
     ['M'] = 0, /* memory optimization */
     ['N'] = 0, /* ssa construction */
@@ -18,21 +18,21 @@ char debug['Z' + 1] = {
     ['R'] = 0, /* reg. allocation */
 };
 
-extern Target T_amd64_sysv;
-extern Target T_amd64_apple;
-extern Target T_arm64;
-extern Target T_arm64_apple;
-extern Target T_rv64;
+extern Target qbe_T_amd64_sysv;
+extern Target qbe_T_amd64_apple;
+extern Target qbe_T_arm64;
+extern Target qbe_T_arm64_apple;
+extern Target qbe_T_rv64;
 
 static FILE *outf;
 static int   dbg;
 
 static void data(Dat *d) {
     if (dbg) return;
-    emitdat(d, outf);
+    qbe_emitdat(d, outf);
     if (d->type == DEnd) {
         fputs("/* end data */\n\n", outf);
-        freeall();
+        qbe_freeall();
     }
 }
 
@@ -40,44 +40,44 @@ static void func(Fn *fn) {
     uint n;
 
     if (dbg) fprintf(stderr, "**** Function %s ****", fn->name);
-    if (debug['P']) {
+    if (qbe_debug['P']) {
         fprintf(stderr, "\n> After parsing:\n");
-        printfn(fn, stderr);
+        qbe_printfn(fn, stderr);
     }
-    T.abi0(fn);
-    fillrpo(fn);
-    fillpreds(fn);
-    filluse(fn);
-    promote(fn);
-    filluse(fn);
-    ssa(fn);
-    filluse(fn);
-    ssacheck(fn);
-    fillalias(fn);
-    loadopt(fn);
-    filluse(fn);
-    fillalias(fn);
-    coalesce(fn);
-    filluse(fn);
-    ssacheck(fn);
-    copy(fn);
-    filluse(fn);
-    fold(fn);
-    T.abi1(fn);
-    simpl(fn);
-    fillpreds(fn);
-    filluse(fn);
-    T.isel(fn);
-    fillrpo(fn);
-    filllive(fn);
-    fillloop(fn);
-    fillcost(fn);
-    spill(fn);
-    rega(fn);
-    fillrpo(fn);
-    simpljmp(fn);
-    fillpreds(fn);
-    fillrpo(fn);
+    qbe_T.abi0(fn);
+    qbe_fillrpo(fn);
+    qbe_fillpreds(fn);
+    qbe_filluse(fn);
+    qbe_promote(fn);
+    qbe_filluse(fn);
+    qbe_ssa(fn);
+    qbe_filluse(fn);
+    qbe_ssacheck(fn);
+    qbe_fillalias(fn);
+    qbe_loadopt(fn);
+    qbe_filluse(fn);
+    qbe_fillalias(fn);
+    qbe_coalesce(fn);
+    qbe_filluse(fn);
+    qbe_ssacheck(fn);
+    qbe_copy(fn);
+    qbe_filluse(fn);
+    qbe_fold(fn);
+    qbe_T.abi1(fn);
+    qbe_simpl(fn);
+    qbe_fillpreds(fn);
+    qbe_filluse(fn);
+    qbe_T.isel(fn);
+    qbe_fillrpo(fn);
+    qbe_filllive(fn);
+    qbe_fillloop(fn);
+    qbe_fillcost(fn);
+    qbe_spill(fn);
+    qbe_rega(fn);
+    qbe_fillrpo(fn);
+    qbe_simpljmp(fn);
+    qbe_fillpreds(fn);
+    qbe_fillrpo(fn);
     assert(fn->rpo[0] == fn->start);
     for (n = 0;; n++)
         if (n == fn->nblk - 1) {
@@ -85,17 +85,17 @@ static void func(Fn *fn) {
             break;
         } else fn->rpo[n]->link = fn->rpo[n + 1];
     if (!dbg) {
-        T.emitfn(fn, outf);
+        qbe_T.emitfn(fn, outf);
         fprintf(outf, "/* end function %s */\n\n", fn->name);
     } else fprintf(stderr, "\n");
-    freeall();
+    qbe_freeall();
 }
 
 static void dbgfile(char *fn) {
-    emitdbgfile(fn, outf);
+    qbe_emitdbgfile(fn, outf);
 }
 
-void qbeCompile(QbeTarget target, FILE *input, FILE *output) {
+void qbe_compile(QbeTarget target, FILE *input, FILE *output) {
     switch (target) {
     case QBE_TARGET_DEFAULT:
 #if defined(__APPLE__) && defined(__x86_64__)
@@ -103,7 +103,7 @@ void qbeCompile(QbeTarget target, FILE *input, FILE *output) {
 #elif defined(__APPLE__) && defined(__aarch64__)
         T = T_arm64_apple;
 #elif defined(__x86_64__)
-        T = T_amd64_sysv;
+        qbe_T = qbe_T_amd64_sysv;
 #elif defined(__aarch64__)
         T = T_arm64;
 #elif defined(__riscv) && __riscv_xlen == 64
@@ -114,23 +114,23 @@ void qbeCompile(QbeTarget target, FILE *input, FILE *output) {
         break;
 
     case QBE_TARGET_X86_64_SYSV:
-        T = T_amd64_sysv;
+        qbe_T = qbe_T_amd64_sysv;
         break;
 
     case QBE_TARGET_X86_64_APPLE:
-        T = T_amd64_apple;
+        qbe_T = qbe_T_amd64_apple;
         break;
 
     case QBE_TARGET_ARM64:
-        T = T_arm64;
+        qbe_T = qbe_T_arm64;
         break;
 
     case QBE_TARGET_ARM64_APPLE:
-        T = T_arm64_apple;
+        qbe_T = qbe_T_arm64_apple;
         break;
 
     case QBE_TARGET_RV64:
-        T = T_rv64;
+        qbe_T = qbe_T_rv64;
         break;
 
     default:
@@ -139,6 +139,6 @@ void qbeCompile(QbeTarget target, FILE *input, FILE *output) {
     }
 
     outf = output;
-    parse(input, "<libqbe>", dbgfile, data, func);
-    if (!dbg) T.emitfin(outf);
+    qbe_parse(input, "<libqbe>", dbgfile, data, func);
+    if (!dbg) qbe_T.emitfin(outf);
 }

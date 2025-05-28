@@ -8,7 +8,7 @@ enum {
 static struct {
 	short op;
 	short cls;
-	char *asm;
+	char *asm_;
 } omap[] = {
 	{ Oadd,    Ki, "add%k %=, %0, %1" },
 	{ Oadd,    Ka, "fadd.%k %=, %0, %1" },
@@ -132,7 +132,7 @@ static void
 emitaddr(Con *c, FILE *f)
 {
 	assert(c->sym.type == SGlo);
-	fputs(str(c->sym.id), f);
+	fputs(qbe_str(c->sym.id), f);
 	if (c->bits.i)
 		fprintf(f, "+%"PRIi64, c->bits.i);
 }
@@ -171,7 +171,7 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 		case '=':
 		case '0':
 			r = c == '=' ? i->to : i->arg[0];
-			assert(isreg(r));
+			assert(qbe_isreg(r));
 			fputs(rname[r.val], f);
 			break;
 		case '1':
@@ -180,7 +180,7 @@ emitf(char *s, Ins *i, Fn *fn, FILE *f)
 			default:
 				die("invalid second argument");
 			case RTmp:
-				assert(isreg(r));
+				assert(qbe_isreg(r));
 				fputs(rname[r.val], f);
 				break;
 			case RCon:
@@ -237,11 +237,11 @@ loadaddr(Con *c, char *rn, FILE *f)
 		else
 			off[0] = 0;
 		fprintf(f, "\tlui %s, %%tprel_hi(%s)%s\n",
-			rn, str(c->sym.id), off);
+			rn, qbe_str(c->sym.id), off);
 		fprintf(f, "\tadd %s, %s, tp, %%tprel_add(%s)%s\n",
-			rn, rn, str(c->sym.id), off);
+			rn, rn, qbe_str(c->sym.id), off);
 		fprintf(f, "\taddi %s, %s, %%tprel_lo(%s)%s\n",
-			rn, rn, str(c->sym.id), off);
+			rn, rn, qbe_str(c->sym.id), off);
 	} else {
 		fprintf(f, "\tla %s, ", rn);
 		emitaddr(c, f);
@@ -320,13 +320,13 @@ emitins(Ins *i, Fn *fn, FILE *f)
 			 * search */
 			if (omap[o].op == NOp)
 				die("no match for %s(%c)",
-					optab[i->op].name, "wlsd"[i->cls]);
+					qbe_optab[i->op].name, "wlsd"[i->cls]);
 			if (omap[o].op == i->op)
 			if (omap[o].cls == i->cls || omap[o].cls == Ka
 			|| (omap[o].cls == Ki && KBASE(i->cls) == 0))
 				break;
 		}
-		emitf(omap[o].asm, i, fn, f);
+		emitf(omap[o].asm_, i, fn, f);
 		break;
 	case Ocopy:
 		if (req(i->to, i->arg[0]))
@@ -338,7 +338,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 				die("unimplemented");
 				break;
 			default:
-				assert(isreg(i->arg[0]));
+				assert(qbe_isreg(i->arg[0]));
 				i->arg[1] = i->to;
 				i->to = R;
 				switch (i->cls) {
@@ -352,7 +352,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 			}
 			break;
 		}
-		assert(isreg(i->to));
+		assert(qbe_isreg(i->to));
 		switch (rtype(i->arg[0])) {
 		case RCon:
 			loadcon(&fn->con[i->arg[0].val], i->to.val, i->cls, f);
@@ -362,7 +362,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 			fixmem(&i->arg[0], fn, f);
 			goto Table;
 		default:
-			assert(isreg(i->arg[0]));
+			assert(qbe_isreg(i->arg[0]));
 			goto Table;
 		}
 		break;
@@ -390,7 +390,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 			|| con->sym.type != SGlo
 			|| con->bits.i)
 				goto Invalid;
-			fprintf(f, "\tcall %s\n", str(con->sym.id));
+			fprintf(f, "\tcall %s\n", qbe_str(con->sym.id));
 			break;
 		case RTmp:
 			emitf("jalr %0", i, fn, f);
@@ -406,7 +406,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 			emitf("mv %=, sp", i, fn, f);
 		break;
 	case Odbgloc:
-		emitdbgloc(i->arg[0].val, i->arg[1].val, f);
+		qbe_emitdbgloc(i->arg[0].val, i->arg[1].val, f);
 		break;
 	}
 }
@@ -439,14 +439,14 @@ emitins(Ins *i, Fn *fn, FILE *f)
 */
 
 void
-rv64_emitfn(Fn *fn, FILE *f)
+qbe_rv64_emitfn(Fn *fn, FILE *f)
 {
 	static int id0;
 	int lbl, neg, off, frame, *pr, r;
 	Blk *b, *s;
 	Ins *i;
 
-	emitfnlnk(fn->name, &fn->lnk, f);
+	qbe_emitfnlnk(fn->name, &fn->lnk, f);
 
 	if (fn->vararg) {
 		/* TODO: only need space for registers
@@ -464,7 +464,7 @@ rv64_emitfn(Fn *fn, FILE *f)
 	fprintf(f, "\tadd fp, sp, -16\n");
 
 	frame = (16 + 4 * fn->slot + 15) & ~15;
-	for (pr=rv64_rclob; *pr>=0; pr++) {
+	for (pr=qbe_rv64_rclob; *pr>=0; pr++) {
 		if (fn->reg & BIT(*pr))
 			frame += 8;
 	}
@@ -481,7 +481,7 @@ rv64_emitfn(Fn *fn, FILE *f)
 			"\tsub sp, sp, t6\n",
 			frame
 		);
-	for (pr=rv64_rclob, off=0; *pr>=0; pr++) {
+	for (pr=qbe_rv64_rclob, off=0; *pr>=0; pr++) {
 		if (fn->reg & BIT(*pr)) {
 			fprintf(f,
 				"\t%s %s, %d(sp)\n",
@@ -516,7 +516,7 @@ rv64_emitfn(Fn *fn, FILE *f)
 						frame - 16
 					);
 			}
-			for (pr=rv64_rclob, off=0; *pr>=0; pr++) {
+			for (pr=qbe_rv64_rclob, off=0; *pr>=0; pr++) {
 				if (fn->reg & BIT(*pr)) {
 					fprintf(f,
 						"\t%s %s, %d(sp)\n",
@@ -549,7 +549,7 @@ rv64_emitfn(Fn *fn, FILE *f)
 				b->s2 = s;
 				neg = 1;
 			}
-			assert(isreg(b->jmp.arg));
+			assert(qbe_isreg(b->jmp.arg));
 			fprintf(f,
 				"\tb%sz %s, .L%d\n",
 				neg ? "ne" : "eq",
@@ -560,5 +560,5 @@ rv64_emitfn(Fn *fn, FILE *f)
 		}
 	}
 	id0 += fn->nblk;
-	elf_emitfnfin(fn->name, f);
+	qbe_elf_emitfnfin(fn->name, f);
 }

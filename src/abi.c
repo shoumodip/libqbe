@@ -7,7 +7,7 @@
  * bits
  */
 void
-elimsb(Fn *fn)
+qbe_elimsb(Fn *fn)
 {
 	Blk *b;
 	Ins *i;

@@ -43,7 +43,7 @@ static Insert *ilog; /* global insertion log */
 static uint nlog;    /* number of entries in the log */
 
 int
-loadsz(Ins *l)
+qbe_loadsz(Ins *l)
 {
 	switch (l->op) {
 	case Oloadsb: case Oloadub: return 1;
@@ -55,7 +55,7 @@ loadsz(Ins *l)
 }
 
 int
-storesz(Ins *s)
+qbe_storesz(Ins *s)
 {
 	switch (s->op) {
 	case Ostoreb: return 1;
@@ -71,14 +71,14 @@ iins(int cls, int op, Ref a0, Ref a1, Loc *l)
 {
 	Insert *ist;
 
-	vgrow(&ilog, ++nlog);
+	qbe_vgrow(&ilog, ++nlog);
 	ist = &ilog[nlog-1];
 	ist->isphi = 0;
 	ist->num = inum++;
 	ist->bid = l->blk->id;
 	ist->off = l->off;
 	ist->new.ins = (Ins){op, cls, R, {a0, a1}};
-	return ist->new.ins.to = newtmp("ld", cls, curf);
+	return ist->new.ins.to = qbe_newtmp("ld", cls, curf);
 }
 
 static void
@@ -110,7 +110,7 @@ static inline void
 mask(int cls, Ref *r, bits msk, Loc *l)
 {
 	cast(r, cls, l);
-	*r = iins(cls, Oand, *r, getcon(msk, curf), l);
+	*r = iins(cls, Oand, *r, qbe_getcon(msk, curf), l);
 }
 
 static Ref
@@ -147,7 +147,7 @@ load(Slice sl, bits msk, Loc *l)
 			r = TMP(a->base);
 			if (!a->offset)
 				break;
-			r1 = getcon(a->offset, curf);
+			r1 = qbe_getcon(a->offset, curf);
 			r = iins(Kl, Oadd, r, r1, l);
 			break;
 		case ACon:
@@ -156,7 +156,7 @@ load(Slice sl, bits msk, Loc *l)
 			c.type = CAddr;
 			c.sym = a->u.sym;
 			c.bits.i = a->offset;
-			r = newcon(&c, curf);
+			r = qbe_newcon(&c, curf);
 			break;
 		}
 	}
@@ -214,7 +214,7 @@ def(Slice sl, bits msk, Blk *b, Ins *i, Loc *il)
 	 *     postdominates il->blk (and by 2, the
 	 *     original load)
 	 */
-	assert(dom(b, il->blk));
+	assert(qbe_dom(b, il->blk));
 	oldl = nlog;
 	oldt = curf->ntmp;
 	if (0) {
@@ -234,15 +234,15 @@ def(Slice sl, bits msk, Blk *b, Ins *i, Loc *il)
 	while (i > b->ins) {
 		--i;
 		if (killsl(i->to, sl)
-		|| (i->op == Ocall && escapes(sl.ref, curf)))
+		|| (i->op == Ocall && qbe_escapes(sl.ref, curf)))
 			goto Load;
 		ld = isload(i->op);
 		if (ld) {
-			sz = loadsz(i);
+			sz = qbe_loadsz(i);
 			r1 = i->arg[0];
 			r = i->to;
 		} else if (isstore(i->op)) {
-			sz = storesz(i);
+			sz = qbe_storesz(i);
 			r1 = i->arg[1];
 			r = i->arg[0];
 		} else if (i->op == Oblit1) {
@@ -254,7 +254,7 @@ def(Slice sl, bits msk, Blk *b, Ins *i, Loc *il)
 			r1 = i->arg[1];
 		} else
 			continue;
-		switch (alias(sl.ref, sl.off, sl.sz, r1, sz, &off, curf)) {
+		switch (qbe_alias(sl.ref, sl.off, sl.sz, r1, sz, &off, curf)) {
 		case MustAlias:
 			if (i->op == Oblit0) {
 				sl1 = sl;
@@ -293,7 +293,7 @@ def(Slice sl, bits msk, Blk *b, Ins *i, Loc *il)
 				if (op == Oshr && off + sl.sz > 4)
 					cls1 = Kl;
 				cast(&r, cls1, il);
-				r1 = getcon(8*off, curf);
+				r1 = qbe_getcon(8*off, curf);
 				r = iins(cls1, op, r, r1, il);
 			}
 			if ((msk1 & msk) != msk1 || off + sz < sl.sz)
@@ -352,9 +352,9 @@ def(Slice sl, bits msk, Blk *b, Ins *i, Loc *il)
 		return r1;
 	}
 
-	r = newtmp("ld", sl.cls, curf);
-	p = alloc(sizeof *p);
-	vgrow(&ilog, ++nlog);
+	r = qbe_newtmp("ld", sl.cls, curf);
+	p = qbe_alloc(sizeof *p);
+	qbe_vgrow(&ilog, ++nlog);
 	ist = &ilog[nlog-1];
 	ist->isphi = 1;
 	ist->bid = b->id;
@@ -363,8 +363,8 @@ def(Slice sl, bits msk, Blk *b, Ins *i, Loc *il)
 	p->to = r;
 	p->cls = sl.cls;
 	p->narg = b->npred;
-	p->arg = vnew(p->narg, sizeof p->arg[0], PFn);
-	p->blk = vnew(p->narg, sizeof p->blk[0], PFn);
+	p->arg = qbe_vnew(p->narg, sizeof p->arg[0], PFn);
+	p->blk = qbe_vnew(p->narg, sizeof p->blk[0], PFn);
 	for (np=0; np<b->npred; ++np) {
 		bp = b->pred[np];
 		if (!bp->s2
@@ -409,7 +409,7 @@ icmp(const void *pa, const void *pb)
 
 /* require rpo ssa alias */
 void
-loadopt(Fn *fn)
+qbe_loadopt(Fn *fn)
 {
 	Ins *i, *ib;
 	Blk *b;
@@ -420,22 +420,22 @@ loadopt(Fn *fn)
 	Loc l;
 
 	curf = fn;
-	ilog = vnew(0, sizeof ilog[0], PHeap);
+	ilog = qbe_vnew(0, sizeof ilog[0], PHeap);
 	nlog = 0;
 	inum = 0;
 	for (b=fn->start; b; b=b->link)
 		for (i=b->ins; i<&b->ins[b->nins]; ++i) {
 			if (!isload(i->op))
 				continue;
-			sz = loadsz(i);
+			sz = qbe_loadsz(i);
 			sl = (Slice){i->arg[0], 0, sz, i->cls};
 			l = (Loc){LRoot, i-b->ins, b};
 			i->arg[1] = def(sl, MASK(sz), b, i, &l);
 		}
 	qsort(ilog, nlog, sizeof ilog[0], icmp);
-	vgrow(&ilog, nlog+1);
+	qbe_vgrow(&ilog, nlog+1);
 	ilog[nlog].bid = fn->nblk; /* add a sentinel */
-	ib = vnew(0, sizeof(Ins), PHeap);
+	ib = qbe_vnew(0, sizeof(Ins), PHeap);
 	for (ist=ilog, n=0; n<fn->nblk; ++n) {
 		b = fn->rpo[n];
 		for (; ist->bid == n && ist->isphi; ++ist) {
@@ -478,16 +478,16 @@ loadopt(Fn *fn)
 					i->arg[1] = R;
 				}
 			}
-			vgrow(&ib, ++nt);
+			qbe_vgrow(&ib, ++nt);
 			ib[nt-1] = *i;
 		}
 		b->nins = nt;
-		idup(&b->ins, ib, nt);
+		qbe_idup(&b->ins, ib, nt);
 	}
-	vfree(ib);
-	vfree(ilog);
-	if (debug['M']) {
+	qbe_vfree(ib);
+	qbe_vfree(ilog);
+	if (qbe_debug['M']) {
 		fprintf(stderr, "\n> After load elimination:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 }

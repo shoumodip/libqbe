@@ -13,7 +13,7 @@ memarg(Ref *r, int op, Ins *i)
 static int
 immarg(Ref *r, int op, Ins *i)
 {
-	return rv64_op[op].imm && r == &i->arg[1];
+	return qbe_rv64_op[op].imm && r == &i->arg[1];
 }
 
 static void
@@ -34,26 +34,26 @@ fixarg(Ref *r, int k, Ins *i, Fn *fn)
 		if (c->type == CBits && immarg(r, op, i))
 		if (-2048 <= c->bits.i && c->bits.i < 2048)
 			break;
-		r1 = newtmp("isel", k, fn);
+		r1 = qbe_newtmp("isel", k, fn);
 		if (KBASE(k) == 1) {
 			/* load floating points from memory
 			 * slots, they can't be used as
 			 * immediates
 			 */
 			assert(c->type == CBits);
-			n = stashbits(&c->bits, KWIDE(k) ? 8 : 4);
-			vgrow(&fn->con, ++fn->ncon);
+			n = qbe_stashbits(&c->bits, KWIDE(k) ? 8 : 4);
+			qbe_vgrow(&fn->con, ++fn->ncon);
 			c = &fn->con[fn->ncon-1];
-			sprintf(buf, "\"%sfp%d\"", T.asloc, n);
+			sprintf(buf, "\"%sfp%d\"", qbe_T.asloc, n);
 			*c = (Con){.type = CAddr};
-			c->sym.id = intern(buf);
-			emit(Oload, k, r1, CON(c-fn->con), R);
+			c->sym.id = qbe_intern(buf);
+			qbe_emit(Oload, k, r1, CON(c-fn->con), R);
 			break;
 		}
-		emit(Ocopy, k, r1, r0, R);
+		qbe_emit(Ocopy, k, r1, r0, R);
 		break;
 	case RTmp:
-		if (isreg(r0))
+		if (qbe_isreg(r0))
 			break;
 		s = fn->tmp[r0.val].slot;
 		if (s != -1) {
@@ -65,16 +65,16 @@ fixarg(Ref *r, int k, Ins *i, Fn *fn)
 				r1 = SLOT(s);
 				break;
 			}
-			r1 = newtmp("isel", k, fn);
-			emit(Oaddr, k, r1, SLOT(s), R);
+			r1 = qbe_newtmp("isel", k, fn);
+			qbe_emit(Oaddr, k, r1, SLOT(s), R);
 			break;
 		}
 		if (k == Kw && fn->tmp[r0.val].cls == Kl) {
 			/* TODO: this sign extension isn't needed
 			 * for 32-bit arithmetic instructions
 			 */
-			r1 = newtmp("isel", k, fn);
-			emit(Oextsw, Kl, r1, r0, R);
+			r1 = qbe_newtmp("isel", k, fn);
+			qbe_emit(Oextsw, Kl, r1, r0, R);
 		} else {
 			assert(k == fn->tmp[r0.val].cls);
 		}
@@ -88,8 +88,8 @@ negate(Ref *pr, Fn *fn)
 {
 	Ref r;
 
-	r = newtmp("isel", Kw, fn);
-	emit(Oxor, Kw, *pr, r, getcon(1, fn));
+	r = qbe_newtmp("isel", Kw, fn);
+	qbe_emit(Oxor, Kw, *pr, r, qbe_getcon(1, fn));
 	*pr = r;
 }
 
@@ -102,18 +102,18 @@ selcmp(Ins i, int k, int op, Fn *fn)
 
 	switch (op) {
 	case Cieq:
-		r = newtmp("isel", k, fn);
-		emit(Oreqz, i.cls, i.to, r, R);
-		emit(Oxor, k, r, i.arg[0], i.arg[1]);
-		icmp = curi;
+		r = qbe_newtmp("isel", k, fn);
+		qbe_emit(Oreqz, i.cls, i.to, r, R);
+		qbe_emit(Oxor, k, r, i.arg[0], i.arg[1]);
+		icmp = qbe_curi;
 		fixarg(&icmp->arg[0], k, icmp, fn);
 		fixarg(&icmp->arg[1], k, icmp, fn);
 		return;
 	case Cine:
-		r = newtmp("isel", k, fn);
-		emit(Ornez, i.cls, i.to, r, R);
-		emit(Oxor, k, r, i.arg[0], i.arg[1]);
-		icmp = curi;
+		r = qbe_newtmp("isel", k, fn);
+		qbe_emit(Ornez, i.cls, i.to, r, R);
+		qbe_emit(Oxor, k, r, i.arg[0], i.arg[1]);
+		icmp = qbe_curi;
 		fixarg(&icmp->arg[0], k, icmp, fn);
 		fixarg(&icmp->arg[1], k, icmp, fn);
 		return;
@@ -136,16 +136,16 @@ selcmp(Ins i, int k, int op, Fn *fn)
 		negate(&i.to, fn);
 		/* fall through */
 	case NCmpI+Cfo:
-		r0 = newtmp("isel", i.cls, fn);
-		r1 = newtmp("isel", i.cls, fn);
-		emit(Oand, i.cls, i.to, r0, r1);
+		r0 = qbe_newtmp("isel", i.cls, fn);
+		r1 = qbe_newtmp("isel", i.cls, fn);
+		qbe_emit(Oand, i.cls, i.to, r0, r1);
 		op = KWIDE(k) ? Oceqd : Oceqs;
-		emit(op, i.cls, r0, i.arg[0], i.arg[0]);
-		icmp = curi;
+		qbe_emit(op, i.cls, r0, i.arg[0], i.arg[0]);
+		icmp = qbe_curi;
 		fixarg(&icmp->arg[0], k, icmp, fn);
 		fixarg(&icmp->arg[1], k, icmp, fn);
-		emit(op, i.cls, r1, i.arg[1], i.arg[1]);
-		icmp = curi;
+		qbe_emit(op, i.cls, r1, i.arg[1], i.arg[1]);
+		icmp = qbe_curi;
 		fixarg(&icmp->arg[0], k, icmp, fn);
 		fixarg(&icmp->arg[1], k, icmp, fn);
 		return;
@@ -165,8 +165,8 @@ selcmp(Ins i, int k, int op, Fn *fn)
 	}
 	if (neg)
 		negate(&i.to, fn);
-	emiti(i);
-	icmp = curi;
+	qbe_emiti(i);
+	icmp = qbe_curi;
 	fixarg(&icmp->arg[0], k, icmp, fn);
 	fixarg(&icmp->arg[1], k, icmp, fn);
 }
@@ -178,20 +178,20 @@ sel(Ins i, Fn *fn)
 	int ck, cc;
 
 	if (INRANGE(i.op, Oalloc, Oalloc1)) {
-		i0 = curi - 1;
-		salloc(i.to, i.arg[0], fn);
+		i0 = qbe_curi - 1;
+		qbe_salloc(i.to, i.arg[0], fn);
 		fixarg(&i0->arg[0], Kl, i0, fn);
 		return;
 	}
-	if (iscmp(i.op, &ck, &cc)) {
+	if (qbe_iscmp(i.op, &ck, &cc)) {
 		selcmp(i, ck, cc, fn);
 		return;
 	}
 	if (i.op != Onop) {
-		emiti(i);
-		i0 = curi; /* fixarg() can change curi */
-		fixarg(&i0->arg[0], argcls(&i, 0), i0, fn);
-		fixarg(&i0->arg[1], argcls(&i, 1), i0, fn);
+		qbe_emiti(i);
+		i0 = qbe_curi; /* fixarg() can change curi */
+		fixarg(&i0->arg[0], qbe_argcls(&i, 0), i0, fn);
+		fixarg(&i0->arg[1], qbe_argcls(&i, 1), i0, fn);
 	}
 }
 
@@ -204,7 +204,7 @@ seljmp(Blk *b, Fn *fn)
 }
 
 void
-rv64_isel(Fn *fn)
+qbe_rv64_isel(Fn *fn)
 {
 	Blk *b, **sb;
 	Ins *i;
@@ -223,7 +223,7 @@ rv64_isel(Fn *fn)
 					break;
 				sz = fn->con[i->arg[0].val].bits.i;
 				if (sz < 0 || sz >= INT_MAX-15)
-					err("invalid alloc size %"PRId64, sz);
+					qbe_err("invalid alloc size %"PRId64, sz);
 				sz = (sz + n-1) & -n;
 				sz /= 4;
 				if (sz > INT_MAX - fn->slot)
@@ -234,7 +234,7 @@ rv64_isel(Fn *fn)
 			}
 
 	for (b=fn->start; b; b=b->link) {
-		curi = &insb[NIns];
+		qbe_curi = &qbe_insb[NIns];
 		for (sb=(Blk*[3]){b->s1, b->s2, 0}; *sb; sb++)
 			for (p=(*sb)->phi; p; p=p->link) {
 				for (n=0; p->blk[n] != b; n++)
@@ -244,12 +244,12 @@ rv64_isel(Fn *fn)
 		seljmp(b, fn);
 		for (i=&b->ins[b->nins]; i!=b->ins;)
 			sel(*--i, fn);
-		b->nins = &insb[NIns] - curi;
-		idup(&b->ins, curi, b->nins);
+		b->nins = &qbe_insb[NIns] - qbe_curi;
+		qbe_idup(&b->ins, qbe_curi, b->nins);
 	}
 
-	if (debug['I']) {
+	if (qbe_debug['I']) {
 		fprintf(stderr, "\n> After instruction selection:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 }

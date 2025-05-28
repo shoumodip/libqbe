@@ -6,7 +6,7 @@ typedef struct Slot Slot;
 
 /* require use, maintains use counts */
 void
-promote(Fn *fn)
+qbe_promote(Fn *fn)
 {
 	Blk *b;
 	Ins *i, *l;
@@ -31,16 +31,16 @@ promote(Fn *fn)
 				goto Skip;
 			l = u->u.ins;
 			if (isload(l->op))
-			if (s == -1 || s == loadsz(l)) {
-				s = loadsz(l);
+			if (s == -1 || s == qbe_loadsz(l)) {
+				s = qbe_loadsz(l);
 				continue;
 			}
 			if (isstore(l->op))
 			if (req(i->to, l->arg[1]) && !req(i->to, l->arg[0]))
-			if (s == -1 || s == storesz(l))
-			if (k == -1 || k == optab[l->op].argcls[0][0]) {
-				s = storesz(l);
-				k = optab[l->op].argcls[0][0];
+			if (s == -1 || s == qbe_storesz(l))
+			if (k == -1 || k == qbe_optab[l->op].argcls[0][0]) {
+				s = qbe_storesz(l);
+				k = qbe_optab[l->op].argcls[0][0];
 				continue;
 			}
 			goto Skip;
@@ -60,7 +60,7 @@ promote(Fn *fn)
 				t->ndef++;
 			} else {
 				if (k == -1)
-					err("slot %%%s is read but never stored to",
+					qbe_err("slot %%%s is read but never stored to",
 						fn->tmp[l->arg[0].val].name);
 				/* try to turn loads into copies so we
 				 * can eliminate them later */
@@ -85,9 +85,9 @@ promote(Fn *fn)
 		}
 	Skip:;
 	}
-	if (debug['M']) {
+	if (qbe_debug['M']) {
 		fprintf(stderr, "\n> After slot promotion:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 }
 
@@ -141,7 +141,7 @@ slot(Slot **ps, int64_t *off, Ref r, Fn *fn, Slot *sl)
 	Alias a;
 	Tmp *t;
 
-	getalias(&a, r, fn);
+	qbe_getalias(&a, r, fn);
 	if (a.type != ALoc)
 		return 0;
 	t = &fn->tmp[a.base];
@@ -177,7 +177,7 @@ store(Ref r, bits x, int ip, Ins *i, Fn *fn, Slot *sl)
 			radd(&s->r, ip);
 			s->l &= ~(x << off);
 		} else {
-			vgrow(&s->st, ++s->nst);
+			qbe_vgrow(&s->st, ++s->nst);
 			s->st[s->nst-1].ip = ip;
 			s->st[s->nst-1].i = i;
 		}
@@ -203,7 +203,7 @@ maxrpo(Blk *hd, Blk *b)
 }
 
 void
-coalesce(Fn *fn)
+qbe_coalesce(Fn *fn)
 {
 	Range r, *br;
 	Slot *s, *s0, *sl;
@@ -221,7 +221,7 @@ coalesce(Fn *fn)
 	 * by coalescing slots
 	 */
 	nsl = 0;
-	sl = vnew(0, sizeof sl[0], PHeap);
+	sl = qbe_vnew(0, sizeof sl[0], PHeap);
 	for (n=Tmp0; n<fn->ntmp; n++) {
 		t = &fn->tmp[n];
 		t->visit = -1;
@@ -230,13 +230,13 @@ coalesce(Fn *fn)
 		if (t->bid == fn->start->id)
 		if (t->alias.u.loc.sz != -1) {
 			t->visit = nsl;
-			vgrow(&sl, ++nsl);
+			qbe_vgrow(&sl, ++nsl);
 			s = &sl[nsl-1];
 			s->t = n;
 			s->sz = t->alias.u.loc.sz;
 			s->m = t->alias.u.loc.m;
 			s->s = 0;
-			s->st = vnew(0, sizeof s->st[0], PHeap);
+			s->st = qbe_vnew(0, sizeof s->st[0], PHeap);
 			s->nst = 0;
 		}
 	}
@@ -244,10 +244,10 @@ coalesce(Fn *fn)
 	/* one-pass liveness analysis */
 	for (b=fn->start; b; b=b->link)
 		b->loop = -1;
-	loopiter(fn, maxrpo);
+	qbe_loopiter(fn, maxrpo);
 	nbl = 0;
-	bl = vnew(0, sizeof bl[0], PHeap);
-	br = emalloc(fn->nblk * sizeof br[0]);
+	bl = qbe_vnew(0, sizeof bl[0], PHeap);
+	br = qbe_emalloc(fn->nblk * sizeof br[0]);
 	ip = INT_MAX - 1;
 	for (n=fn->nblk-1; n>=0; n--) {
 		b = fn->rpo[n];
@@ -274,11 +274,11 @@ coalesce(Fn *fn)
 				load(arg[1], -1, --ip, fn, sl);
 			}
 			if (isload(i->op)) {
-				x = BIT(loadsz(i)) - 1;
+				x = BIT(qbe_loadsz(i)) - 1;
 				load(arg[0], x, --ip, fn, sl);
 			}
 			if (isstore(i->op)) {
-				x = BIT(storesz(i)) - 1;
+				x = BIT(qbe_storesz(i)) - 1;
 				store(arg[1], x, ip--, i, fn, sl);
 			}
 			if (i->op == Oblit0) {
@@ -288,7 +288,7 @@ coalesce(Fn *fn)
 				x = sz >= NBit ? (bits)-1 : BIT(sz) - 1;
 				store(arg[1], x, ip--, i, fn, sl);
 				load(arg[0], x, ip, fn, sl);
-				vgrow(&bl, ++nbl);
+				qbe_vgrow(&bl, ++nbl);
 				bl[nbl-1] = i;
 			}
 		}
@@ -317,20 +317,20 @@ coalesce(Fn *fn)
 	/* kill slots with an empty live range */
 	total = 0;
 	freed = 0;
-	stk = vnew(0, sizeof stk[0], PHeap);
+	stk = qbe_vnew(0, sizeof stk[0], PHeap);
 	n = 0;
 	for (s=s0=sl; s<&sl[nsl]; s++) {
 		total += s->sz;
 		if (!s->r.b) {
-			vfree(s->st);
-			vgrow(&stk, ++n);
+			qbe_vfree(s->st);
+			qbe_vgrow(&stk, ++n);
 			stk[n-1] = s->t;
 			freed += s->sz;
 		} else
 			*s0++ = *s;
 	}
 	nsl = s0-sl;
-	if (debug['M']) {
+	if (qbe_debug['M']) {
 		fputs("\n> Slot coalescing:\n", stderr);
 		if (n) {
 			fputs("\tkill [", stderr);
@@ -362,7 +362,7 @@ coalesce(Fn *fn)
 			i = u->u.ins;
 			if (!req(i->to, R)) {
 				assert(rtype(i->to) == RTmp);
-				vgrow(&stk, ++n);
+				qbe_vgrow(&stk, ++n);
 				stk[n-1] = i->to.val;
 			} else if (isarg(i->op)) {
 				assert(i->op == Oargc);
@@ -374,7 +374,7 @@ coalesce(Fn *fn)
 			}
 		}
 	}
-	vfree(stk);
+	qbe_vfree(stk);
 
 	/* fuse slots by decreasing size */
 	qsort(sl, nsl, sizeof *sl, scmp);
@@ -453,9 +453,9 @@ coalesce(Fn *fn)
 			(i+1)->arg[0] = INT(-sz);
 		}
 	}
-	vfree(bl);
+	qbe_vfree(bl);
 
-	if (debug['M']) {
+	if (qbe_debug['M']) {
 		for (s0=sl; s0<&sl[nsl]; s0++) {
 			if (s0->s != s0)
 				continue;
@@ -474,10 +474,10 @@ coalesce(Fn *fn)
 		}
 		fprintf(stderr, "\tsums %u/%u/%u (killed/fused/total)\n\n",
 			freed, fused, total);
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 
 	for (s=sl; s<&sl[nsl]; s++)
-		vfree(s->st);
-	vfree(sl);
+		qbe_vfree(s->st);
+	qbe_vfree(sl);
 }

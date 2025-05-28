@@ -1,7 +1,7 @@
 #include "all.h"
 
 void
-getalias(Alias *a, Ref r, Fn *fn)
+qbe_getalias(Alias *a, Ref r, Fn *fn)
 {
 	Con *c;
 
@@ -28,13 +28,13 @@ getalias(Alias *a, Ref r, Fn *fn)
 }
 
 int
-alias(Ref p, int op, int sp, Ref q, int sq, int *delta, Fn *fn)
+qbe_alias(Ref p, int op, int sp, Ref q, int sq, int *delta, Fn *fn)
 {
 	Alias ap, aq;
 	int ovlap;
 
-	getalias(&ap, p, fn);
-	getalias(&aq, q, fn);
+	qbe_getalias(&ap, p, fn);
+	qbe_getalias(&aq, q, fn);
 	ap.offset += op;
 	/* when delta is meaningful (ovlap == 1),
 	 * we do not overflow int because sp and
@@ -55,7 +55,7 @@ alias(Ref p, int op, int sp, Ref q, int sq, int *delta, Fn *fn)
 		/* they conservatively alias if the
 		 * symbols are different, or they
 		 * alias for sure if they overlap */
-		if (!symeq(ap.u.sym, aq.u.sym))
+		if (!qbe_symeq(ap.u.sym, aq.u.sym))
 			return MayAlias;
 		if (ovlap)
 			return MustAlias;
@@ -84,7 +84,7 @@ alias(Ref p, int op, int sp, Ref q, int sq, int *delta, Fn *fn)
 }
 
 int
-escapes(Ref r, Fn *fn)
+qbe_escapes(Ref r, Fn *fn)
 {
 	Alias *a;
 
@@ -130,7 +130,7 @@ store(Ref r, int sz, Fn *fn)
 }
 
 void
-fillalias(Fn *fn)
+qbe_fillalias(Fn *fn)
 {
 	uint n, m;
 	int t, sz;
@@ -182,11 +182,11 @@ fillalias(Fn *fn)
 			}
 			if (i->op == Ocopy) {
 				assert(a);
-				getalias(a, i->arg[0], fn);
+				qbe_getalias(a, i->arg[0], fn);
 			}
 			if (i->op == Oadd) {
-				getalias(&a0, i->arg[0], fn);
-				getalias(&a1, i->arg[1], fn);
+				qbe_getalias(&a0, i->arg[0], fn);
+				qbe_getalias(&a1, i->arg[1], fn);
 				if (a0.type == ACon) {
 					*a = a1;
 					a->offset += a0.offset;
@@ -212,7 +212,7 @@ fillalias(Fn *fn)
 				store((i-1)->arg[1], sz, fn);
 			}
 			if (isstore(i->op))
-				store(i->arg[1], storesz(i), fn);
+				store(i->arg[1], qbe_storesz(i), fn);
 		}
 		if (b->jmp.type != Jretc)
 			esc(b->jmp.arg, fn);

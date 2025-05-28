@@ -31,7 +31,7 @@ static uint stblk;     /* stats: added blocks */
 static int *
 hint(int t)
 {
-	return &tmp[phicls(t, tmp)].hint.r;
+	return &tmp[qbe_phicls(t, tmp)].hint.r;
 }
 
 static void
@@ -39,7 +39,7 @@ sethint(int t, int r)
 {
 	Tmp *p;
 
-	p = &tmp[phicls(t, tmp)];
+	p = &tmp[qbe_phicls(t, tmp)];
 	if (p->hint.r == -1 || p->hint.w > loop) {
 		p->hint.r = r;
 		p->hint.w = loop;
@@ -53,7 +53,7 @@ rcopy(RMap *ma, RMap *mb)
 	memcpy(ma->t, mb->t, sizeof ma->t);
 	memcpy(ma->r, mb->r, sizeof ma->r);
 	memcpy(ma->w, mb->w, sizeof ma->w);
-	bscopy(ma->b, mb->b);
+	qbe_bscopy(ma->b, mb->b);
 	ma->n = mb->n;
 }
 
@@ -86,14 +86,14 @@ static void
 radd(RMap *m, int t, int r)
 {
 	assert((t >= Tmp0 || t == r) && "invalid temporary");
-	assert(((T.gpr0 <= r && r < T.gpr0 + T.ngpr)
-		|| (T.fpr0 <= r && r < T.fpr0 + T.nfpr))
+	assert(((qbe_T.gpr0 <= r && r < qbe_T.gpr0 + qbe_T.ngpr)
+		|| (qbe_T.fpr0 <= r && r < qbe_T.fpr0 + qbe_T.nfpr))
 		&& "invalid register");
 	assert(!bshas(m->b, t) && "temporary has mapping");
 	assert(!bshas(m->b, r) && "register already allocated");
-	assert(m->n <= T.ngpr+T.nfpr && "too many mappings");
-	bsset(m->b, t);
-	bsset(m->b, r);
+	assert(m->n <= qbe_T.ngpr+qbe_T.nfpr && "too many mappings");
+	qbe_bsset(m->b, t);
+	qbe_bsset(m->b, r);
 	m->t[m->n] = t;
 	m->r[m->n] = r;
 	m->n++;
@@ -121,14 +121,14 @@ ralloctry(RMap *m, int t, int try)
 	if (r == -1 || bshas(m->b, r)) {
 		if (try)
 			return R;
-		regs = tmp[phicls(t, tmp)].hint.m;
+		regs = tmp[qbe_phicls(t, tmp)].hint.m;
 		regs |= m->b->t[0];
 		if (KBASE(tmp[t].cls) == 0) {
-			r0 = T.gpr0;
-			r1 = r0 + T.ngpr;
+			r0 = qbe_T.gpr0;
+			r1 = r0 + qbe_T.ngpr;
 		} else {
-			r0 = T.fpr0;
-			r1 = r0 + T.nfpr;
+			r0 = qbe_T.fpr0;
+			r1 = r0 + qbe_T.nfpr;
 		}
 		for (r=r0; r<r1; r++)
 			if (!(regs & BIT(r)))
@@ -159,14 +159,14 @@ rfree(RMap *m, int t)
 {
 	int i, r;
 
-	assert(t >= Tmp0 || !(BIT(t) & T.rglob));
+	assert(t >= Tmp0 || !(BIT(t) & qbe_T.rglob));
 	if (!bshas(m->b, t))
 		return -1;
 	for (i=0; m->t[i] != t; i++)
 		assert(i+1 < m->n);
 	r = m->r[i];
-	bsclr(m->b, t);
-	bsclr(m->b, r);
+	qbe_bsclr(m->b, t);
+	qbe_bsclr(m->b, r);
 	m->n--;
 	memmove(&m->t[i], &m->t[i+1], (m->n-i) * sizeof m->t[0]);
 	memmove(&m->r[i], &m->r[i+1], (m->n-i) * sizeof m->r[0]);
@@ -221,7 +221,7 @@ pmrec(enum PMStat *status, int i, int *k)
 	switch (j == npm ? Moved : status[j]) {
 	case Moving:
 		c = j; /* start of cycle */
-		emit(Oswap, *k, R, pm[i].src, pm[i].dst);
+		qbe_emit(Oswap, *k, R, pm[i].src, pm[i].dst);
 		break;
 	case ToMove:
 		status[i] = Moving;
@@ -231,13 +231,13 @@ pmrec(enum PMStat *status, int i, int *k)
 			break;
 		}
 		if (c != -1) {
-			emit(Oswap, *k, R, pm[i].src, pm[i].dst);
+			qbe_emit(Oswap, *k, R, pm[i].src, pm[i].dst);
 			break;
 		}
 		/* fall through */
 	case Moved:
 		c = -1;
-		emit(Ocopy, pm[i].cls, pm[i].dst, pm[i].src, R);
+		qbe_emit(Ocopy, pm[i].cls, pm[i].dst, pm[i].src, R);
 		break;
 	default:
 		die("unreachable");
@@ -252,7 +252,7 @@ pmgen()
 	int i;
 	enum PMStat *status;
 
-	status = alloc(npm * sizeof status[0]);
+	status = qbe_alloc(npm * sizeof status[0]);
 	assert(!npm || status[npm-1] == ToMove);
 	for (i=0; i<npm; i++)
 		if (status[i] == ToMove)
@@ -272,9 +272,9 @@ move(int r, Ref to, RMap *m)
 			assert(n+1 < m->n);
 		t = m->t[n];
 		rfree(m, t);
-		bsset(m->b, r);
+		qbe_bsset(m->b, r);
 		ralloc(m, t);
-		bsclr(m->b, r);
+		qbe_bsclr(m->b, r);
 	}
 	t = req(to, R) ? r : to.val;
 	radd(m, t, r);
@@ -283,7 +283,7 @@ move(int r, Ref to, RMap *m)
 static int
 regcpy(Ins *i)
 {
-	return i->op == Ocopy && isreg(i->arg[0]);
+	return i->op == Ocopy && qbe_isreg(i->arg[0]);
 }
 
 static Ins *
@@ -303,10 +303,10 @@ dopm(Blk *b, Ins *i, RMap *m)
 	} while (i != b->ins && regcpy(i-1));
 	assert(m0.n <= m->n);
 	if (i != b->ins && (i-1)->op == Ocall) {
-		def = T.retregs((i-1)->arg[1], 0) | T.rglob;
-		for (r=0; T.rsave[r]>=0; r++)
-			if (!(BIT(T.rsave[r]) & def))
-				move(T.rsave[r], R, m);
+		def = qbe_T.retregs((i-1)->arg[1], 0) | qbe_T.rglob;
+		for (r=0; qbe_T.rsave[r]>=0; r++)
+			if (!(BIT(qbe_T.rsave[r]) & def))
+				move(qbe_T.rsave[r], R, m);
 	}
 	for (npm=0, n=0; n<m->n; n++) {
 		t = m->t[n];
@@ -363,26 +363,26 @@ doblk(Blk *b, RMap *cur)
 
 	if (rtype(b->jmp.arg) == RTmp)
 		b->jmp.arg = ralloc(cur, b->jmp.arg.val);
-	curi = &insb[NIns];
+	qbe_curi = &qbe_insb[NIns];
 	for (i1=&b->ins[b->nins]; i1!=b->ins;) {
-		emiti(*--i1);
-		i = curi;
+		qbe_emiti(*--i1);
+		i = qbe_curi;
 		rf = -1;
 		switch (i->op) {
 		case Ocall:
-			rs = T.argregs(i->arg[1], 0) | T.rglob;
-			for (r=0; T.rsave[r]>=0; r++)
-				if (!(BIT(T.rsave[r]) & rs))
-					rfree(cur, T.rsave[r]);
+			rs = qbe_T.argregs(i->arg[1], 0) | qbe_T.rglob;
+			for (r=0; qbe_T.rsave[r]>=0; r++)
+				if (!(BIT(qbe_T.rsave[r]) & rs))
+					rfree(cur, qbe_T.rsave[r]);
 			break;
 		case Ocopy:
 			if (regcpy(i)) {
-				curi++;
+				qbe_curi++;
 				i1 = dopm(b, i1, cur);
-				stmov += i+1 - curi;
+				stmov += i+1 - qbe_curi;
 				continue;
 			}
-			if (isreg(i->to))
+			if (qbe_isreg(i->to))
 			if (rtype(i->arg[0]) == RTmp)
 				sethint(i->arg[0].val, i->to.val);
 			/* fall through */
@@ -390,12 +390,12 @@ doblk(Blk *b, RMap *cur)
 			if (!req(i->to, R)) {
 				assert(rtype(i->to) == RTmp);
 				r = i->to.val;
-				if (r < Tmp0 && (BIT(r) & T.rglob))
+				if (r < Tmp0 && (BIT(r) & qbe_T.rglob))
 					break;
 				rf = rfree(cur, r);
 				if (rf == -1) {
-					assert(!isreg(i->to));
-					curi++;
+					assert(!qbe_isreg(i->to));
+					qbe_curi++;
 					continue;
 				}
 				i->to = TMP(rf);
@@ -418,7 +418,7 @@ doblk(Blk *b, RMap *cur)
 		for (r=0; r<nr; r++)
 			*ra[r] = ralloc(cur, ra[r]->val);
 		if (i->op == Ocopy && req(i->to, i->arg[0]))
-			curi++;
+			qbe_curi++;
 
 		/* try to change the register of a hinted
 		 * temporary if rf is available */
@@ -428,7 +428,7 @@ doblk(Blk *b, RMap *cur)
 			tmp[t].visit = -1;
 			ralloc(cur, t);
 			assert(bshas(cur->b, rf));
-			emit(Ocopy, tmp[t].cls, TMP(rt), TMP(rf), R);
+			qbe_emit(Ocopy, tmp[t].cls, TMP(rt), TMP(rf), R);
 			stmov += 1;
 			cur->w[rf] = 0;
 			for (r=0; r<nr; r++)
@@ -439,8 +439,8 @@ doblk(Blk *b, RMap *cur)
 			 * the above loop must be changed */
 		}
 	}
-	b->nins = &insb[NIns] - curi;
-	idup(&b->ins, curi, b->nins);
+	b->nins = &qbe_insb[NIns] - qbe_curi;
+	qbe_idup(&b->ins, qbe_curi, b->nins);
 }
 
 /* qsort() comparison function to peel
@@ -475,7 +475,7 @@ prio2(int t1, int t2)
  * depends on rpo, phi, cost, (and obviously spill)
  */
 void
-rega(Fn *fn)
+qbe_rega(Fn *fn)
 {
 	int j, t, r, x, rl[Tmp0];
 	Blk *b, *b1, *s, ***ps, *blist, **blk, **bp;
@@ -491,15 +491,15 @@ rega(Fn *fn)
 	regu = 0;
 	tmp = fn->tmp;
 	mem = fn->mem;
-	blk = alloc(fn->nblk * sizeof blk[0]);
-	end = alloc(fn->nblk * sizeof end[0]);
-	beg = alloc(fn->nblk * sizeof beg[0]);
+	blk = qbe_alloc(fn->nblk * sizeof blk[0]);
+	end = qbe_alloc(fn->nblk * sizeof end[0]);
+	beg = qbe_alloc(fn->nblk * sizeof beg[0]);
 	for (n=0; n<fn->nblk; n++) {
-		bsinit(end[n].b, fn->ntmp);
-		bsinit(beg[n].b, fn->ntmp);
+		qbe_bsinit(end[n].b, fn->ntmp);
+		qbe_bsinit(beg[n].b, fn->ntmp);
 	}
-	bsinit(cur.b, fn->ntmp);
-	bsinit(old.b, fn->ntmp);
+	qbe_bsinit(cur.b, fn->ntmp);
+	qbe_bsinit(old.b, fn->ntmp);
 
 	loop = INT_MAX;
 	for (t=0; t<fn->ntmp; t++) {
@@ -511,7 +511,7 @@ rega(Fn *fn)
 		*bp++ = b;
 	qsort(blk, fn->nblk, sizeof blk[0], carve);
 	for (b=fn->start, i=b->ins; i<&b->ins[b->nins]; i++)
-		if (i->op != Ocopy || !isreg(i->arg[0]))
+		if (i->op != Ocopy || !qbe_isreg(i->arg[0]))
 			break;
 		else {
 			assert(rtype(i->to) == RTmp);
@@ -524,9 +524,9 @@ rega(Fn *fn)
 		n = b->id;
 		loop = b->loop;
 		cur.n = 0;
-		bszero(cur.b);
+		qbe_bszero(cur.b);
 		memset(cur.w, 0, sizeof cur.w);
-		for (x=0, t=Tmp0; bsiter(b->out, &t); t++) {
+		for (x=0, t=Tmp0; qbe_bsiter(b->out, &t); t++) {
 			j = x++;
 			rl[j] = t;
 			while (j-- > 0 && prio2(t, rl[j]) > 0) {
@@ -534,7 +534,7 @@ rega(Fn *fn)
 				rl[j] = t;
 			}
 		}
-		for (r=0; bsiter(b->out, &r) && r<Tmp0; r++)
+		for (r=0; qbe_bsiter(b->out, &r) && r<Tmp0; r++)
 			radd(&cur, r, r);
 		for (j=0; j<x; j++)
 			ralloctry(&cur, rl[j], 1);
@@ -542,10 +542,10 @@ rega(Fn *fn)
 			ralloc(&cur, rl[j]);
 		rcopy(&end[n], &cur);
 		doblk(b, &cur);
-		bscopy(b->in, cur.b);
+		qbe_bscopy(b->in, cur.b);
 		for (p=b->phi; p; p=p->link)
 			if (rtype(p->to) == RTmp)
-				bsclr(b->in, p->to.val);
+				qbe_bsclr(b->in, p->to.val);
 		rcopy(&beg[n], &cur);
 	}
 
@@ -607,22 +607,22 @@ rega(Fn *fn)
 			if (x > 0 && !bshas(m->b, x)) {
 				pmadd(TMP(x), TMP(r), tmp[t].cls);
 				m->r[j] = x;
-				bsset(m->b, x);
+				qbe_bsset(m->b, x);
 			}
 		}
-		curi = &insb[NIns];
+		qbe_curi = &qbe_insb[NIns];
 		pmgen();
-		j = &insb[NIns] - curi;
+		j = &qbe_insb[NIns] - qbe_curi;
 		if (j == 0)
 			continue;
 		stmov += j;
 		s->nins += j;
-		i = alloc(s->nins * sizeof(Ins));
-		icpy(icpy(i, curi, j), s->ins, s->nins-j);
+		i = qbe_alloc(s->nins * sizeof(Ins));
+		qbe_icpy(qbe_icpy(i, qbe_curi, j), s->ins, s->nins-j);
 		s->ins = i;
 	}
 
-	if (debug['R'])  {
+	if (qbe_debug['R'])  {
 		fprintf(stderr, "\n> Register mappings:\n");
 		for (n=0; n<fn->nblk; n++) {
 			b = fn->rpo[n];
@@ -656,25 +656,25 @@ rega(Fn *fn)
 					src = rref(&end[b->id], src.val);
 				pmadd(src, dst, p->cls);
 			}
-			for (t=Tmp0; bsiter(s->in, &t); t++) {
+			for (t=Tmp0; qbe_bsiter(s->in, &t); t++) {
 				src = rref(&end[b->id], t);
 				dst = rref(&beg[s->id], t);
 				pmadd(src, dst, tmp[t].cls);
 			}
-			curi = &insb[NIns];
+			qbe_curi = &qbe_insb[NIns];
 			pmgen();
-			if (curi == &insb[NIns])
+			if (qbe_curi == &qbe_insb[NIns])
 				continue;
-			b1 = newblk();
+			b1 = qbe_newblk();
 			b1->loop = (b->loop+s->loop) / 2;
 			b1->link = blist;
 			blist = b1;
 			fn->nblk++;
-			strf(b1->name, "%s_%s", b->name, s->name);
-			b1->nins = &insb[NIns] - curi;
+			qbe_strf(b1->name, "%s_%s", b->name, s->name);
+			b1->nins = &qbe_insb[NIns] - qbe_curi;
 			stmov += b1->nins;
 			stblk += 1;
-			idup(&b1->ins, curi, b1->nins);
+			qbe_idup(&b1->ins, qbe_curi, b1->nins);
 			b1->jmp.type = Jjmp;
 			b1->s1 = s;
 			**ps = b1;
@@ -688,11 +688,11 @@ rega(Fn *fn)
 		b->phi = 0;
 	fn->reg = regu;
 
-	if (debug['R']) {
+	if (qbe_debug['R']) {
 		fprintf(stderr, "\n> Register allocation statistics:\n");
 		fprintf(stderr, "\tnew moves:  %d\n", stmov);
 		fprintf(stderr, "\tnew blocks: %d\n", stblk);
 		fprintf(stderr, "\n> After register allocation:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 }

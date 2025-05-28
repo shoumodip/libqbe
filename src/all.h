@@ -6,7 +6,7 @@
 #include <string.h>
 
 #define MAKESURE(what, x) typedef char make_sure_##what[(x)?1:-1]
-#define die(...) die_(__FILE__, __VA_ARGS__)
+#define die(...) qbe_die_(__FILE__, __VA_ARGS__)
 
 typedef unsigned char uchar;
 typedef unsigned int uint;
@@ -439,8 +439,8 @@ struct Dat {
 };
 
 /* main.c */
-extern Target T;
-extern char debug['Z'+1];
+extern Target qbe_T;
+extern char qbe_debug['Z'+1];
 
 /* util.c */
 typedef enum {
@@ -448,50 +448,50 @@ typedef enum {
 	PFn, /* discarded after processing the function */
 } Pool;
 
-extern Typ *typ;
-extern Ins insb[NIns], *curi;
-uint32_t hash(char *);
-void die_(char *, char *, ...) __attribute__((noreturn));
-void *emalloc(size_t);
-void *alloc(size_t);
-void freeall(void);
-void *vnew(ulong, size_t, Pool);
-void vfree(void *);
-void vgrow(void *, ulong);
-void strf(char[NString], char *, ...);
-uint32_t intern(char *);
-char *str(uint32_t);
-int argcls(Ins *, int);
-int isreg(Ref);
-int iscmp(int, int *, int *);
-void emit(int, int, Ref, Ref, Ref);
-void emiti(Ins);
-void idup(Ins **, Ins *, ulong);
-Ins *icpy(Ins *, Ins *, ulong);
-int cmpop(int);
-int cmpneg(int);
-int clsmerge(short *, short);
-int phicls(int, Tmp *);
-Ref newtmp(char *, int, Fn *);
-void chuse(Ref, int, Fn *);
-int symeq(Sym, Sym);
-Ref newcon(Con *, Fn *);
-Ref getcon(int64_t, Fn *);
-int addcon(Con *, Con *);
-void salloc(Ref, Ref, Fn *);
-void dumpts(BSet *, Tmp *, FILE *);
+extern Typ *qbe_typ;
+extern Ins qbe_insb[NIns], *qbe_curi;
+uint32_t qbe_hash(char *);
+void qbe_die_(char *, char *, ...) __attribute__((noreturn));
+void *qbe_emalloc(size_t);
+void *qbe_alloc(size_t);
+void qbe_freeall(void);
+void *qbe_vnew(ulong, size_t, Pool);
+void qbe_vfree(void *);
+void qbe_vgrow(void *, ulong);
+void qbe_strf(char[NString], char *, ...);
+uint32_t qbe_intern(char *);
+char *qbe_str(uint32_t);
+int qbe_argcls(Ins *, int);
+int qbe_isreg(Ref);
+int qbe_iscmp(int, int *, int *);
+void qbe_emit(int, int, Ref, Ref, Ref);
+void qbe_emiti(Ins);
+void qbe_idup(Ins **, Ins *, ulong);
+Ins *qbe_icpy(Ins *, Ins *, ulong);
+int qbe_cmpop(int);
+int qbe_cmpneg(int);
+int qbe_clsmerge(short *, short);
+int qbe_phicls(int, Tmp *);
+Ref qbe_newtmp(char *, int, Fn *);
+void qbe_chuse(Ref, int, Fn *);
+int qbe_symeq(Sym, Sym);
+Ref qbe_newcon(Con *, Fn *);
+Ref qbe_getcon(int64_t, Fn *);
+int qbe_addcon(Con *, Con *);
+void qbe_salloc(Ref, Ref, Fn *);
+void qbe_dumpts(BSet *, Tmp *, FILE *);
 
-void bsinit(BSet *, uint);
-void bszero(BSet *);
-uint bscount(BSet *);
-void bsset(BSet *, uint);
-void bsclr(BSet *, uint);
-void bscopy(BSet *, BSet *);
-void bsunion(BSet *, BSet *);
-void bsinter(BSet *, BSet *);
-void bsdiff(BSet *, BSet *);
-int bsequal(BSet *, BSet *);
-int bsiter(BSet *, int *);
+void qbe_bsinit(BSet *, uint);
+void qbe_bszero(BSet *);
+uint qbe_bscount(BSet *);
+void qbe_bsset(BSet *, uint);
+void qbe_bsclr(BSet *, uint);
+void qbe_bscopy(BSet *, BSet *);
+void qbe_bsunion(BSet *, BSet *);
+void qbe_bsinter(BSet *, BSet *);
+void qbe_bsdiff(BSet *, BSet *);
+int qbe_bsequal(BSet *, BSet *);
+int qbe_bsiter(BSet *, int *);
 
 static inline int
 bshas(BSet *bs, uint elt)
@@ -501,76 +501,76 @@ bshas(BSet *bs, uint elt)
 }
 
 /* parse.c */
-extern Op optab[NOp];
-void parse(FILE *, char *, void (char *), void (Dat *), void (Fn *));
-void printfn(Fn *, FILE *);
-void printref(Ref, Fn *, FILE *);
-void err(char *, ...) __attribute__((noreturn));
+extern Op qbe_optab[NOp];
+void qbe_parse(FILE *, char *, void (char *), void (Dat *), void (Fn *));
+void qbe_printfn(Fn *, FILE *);
+void qbe_printref(Ref, Fn *, FILE *);
+void qbe_err(char *, ...) __attribute__((noreturn));
 
 /* abi.c */
-void elimsb(Fn *);
+void qbe_elimsb(Fn *);
 
 /* cfg.c */
-Blk *newblk(void);
-void edgedel(Blk *, Blk **);
-void fillpreds(Fn *);
-void fillrpo(Fn *);
-void filldom(Fn *);
-int sdom(Blk *, Blk *);
-int dom(Blk *, Blk *);
-void fillfron(Fn *);
-void loopiter(Fn *, void (*)(Blk *, Blk *));
-void fillloop(Fn *);
-void simpljmp(Fn *);
+Blk *qbe_newblk(void);
+void qbe_edgedel(Blk *, Blk **);
+void qbe_fillpreds(Fn *);
+void qbe_fillrpo(Fn *);
+void qbe_filldom(Fn *);
+int qbe_sdom(Blk *, Blk *);
+int qbe_dom(Blk *, Blk *);
+void qbe_fillfron(Fn *);
+void qbe_loopiter(Fn *, void (*)(Blk *, Blk *));
+void qbe_fillloop(Fn *);
+void qbe_simpljmp(Fn *);
 
 /* mem.c */
-void promote(Fn *);
-void coalesce(Fn *);
+void qbe_promote(Fn *);
+void qbe_coalesce(Fn *);
 
 /* alias.c */
-void fillalias(Fn *);
-void getalias(Alias *, Ref, Fn *);
-int alias(Ref, int, int, Ref, int, int *, Fn *);
-int escapes(Ref, Fn *);
+void qbe_fillalias(Fn *);
+void qbe_getalias(Alias *, Ref, Fn *);
+int qbe_alias(Ref, int, int, Ref, int, int *, Fn *);
+int qbe_escapes(Ref, Fn *);
 
 /* load.c */
-int loadsz(Ins *);
-int storesz(Ins *);
-void loadopt(Fn *);
+int qbe_loadsz(Ins *);
+int qbe_storesz(Ins *);
+void qbe_loadopt(Fn *);
 
 /* ssa.c */
-void filluse(Fn *);
-void fillpreds(Fn *);
-void fillrpo(Fn *);
-void ssa(Fn *);
-void ssacheck(Fn *);
+void qbe_filluse(Fn *);
+void qbe_fillpreds(Fn *);
+void qbe_fillrpo(Fn *);
+void qbe_ssa(Fn *);
+void qbe_ssacheck(Fn *);
 
 /* copy.c */
-void copy(Fn *);
+void qbe_copy(Fn *);
 
 /* fold.c */
-void fold(Fn *);
+void qbe_fold(Fn *);
 
 /* simpl.c */
-void simpl(Fn *);
+void qbe_simpl(Fn *);
 
 /* live.c */
-void liveon(BSet *, Blk *, Blk *);
-void filllive(Fn *);
+void qbe_liveon(BSet *, Blk *, Blk *);
+void qbe_filllive(Fn *);
 
 /* spill.c */
-void fillcost(Fn *);
-void spill(Fn *);
+void qbe_fillcost(Fn *);
+void qbe_spill(Fn *);
 
 /* rega.c */
-void rega(Fn *);
+void qbe_rega(Fn *);
 
 /* emit.c */
-void emitfnlnk(char *, Lnk *, FILE *);
-void emitdat(Dat *, FILE *);
-void emitdbgfile(char *, FILE *);
-void emitdbgloc(uint, uint, FILE *);
-int stashbits(void *, int);
-void elf_emitfnfin(char *, FILE *);
-void elf_emitfin(FILE *);
-void macho_emitfin(FILE *);
+void qbe_emitfnlnk(char *, Lnk *, FILE *);
+void qbe_emitdat(Dat *, FILE *);
+void qbe_emitdbgfile(char *, FILE *);
+void qbe_emitdbgloc(uint, uint, FILE *);
+int qbe_stashbits(void *, int);
+void qbe_elf_emitfnfin(char *, FILE *);
+void qbe_elf_emitfin(FILE *);
+void qbe_macho_emitfin(FILE *);

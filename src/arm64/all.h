@@ -21,18 +21,18 @@ enum Arm64Reg {
 MAKESURE(reg_not_tmp, V30 < (int)Tmp0);
 
 /* targ.c */
-extern int arm64_rsave[];
-extern int arm64_rclob[];
+extern int qbe_arm64_rsave[];
+extern int qbe_arm64_rclob[];
 
 /* abi.c */
-bits arm64_retregs(Ref, int[2]);
-bits arm64_argregs(Ref, int[2]);
-void arm64_abi(Fn *);
-void apple_extsb(Fn *);
+bits qbe_arm64_retregs(Ref, int[2]);
+bits qbe_arm64_argregs(Ref, int[2]);
+void qbe_arm64_abi(Fn *);
+void qbe_apple_extsb(Fn *);
 
 /* isel.c */
-int arm64_logimm(uint64_t, int);
-void arm64_isel(Fn *);
+int qbe_arm64_logimm(uint64_t, int);
+void qbe_arm64_isel(Fn *);
 
 /* emit.c */
-void arm64_emitfn(Fn *, FILE *);
+void qbe_arm64_emitfn(Fn *, FILE *);

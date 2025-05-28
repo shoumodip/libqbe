@@ -58,7 +58,7 @@ update(int t, int m, Fn *fn)
 	if (m != val[t]) {
 		tmp = &fn->tmp[t];
 		for (u=0; u<tmp->nuse; u++) {
-			vgrow(&usewrk, ++nuse);
+			qbe_vgrow(&usewrk, ++nuse);
 			usewrk[nuse-1] = &tmp->use[u];
 		}
 		val[t] = m;
@@ -100,7 +100,7 @@ visitins(Ins *i, Fn *fn)
 
 	if (rtype(i->to) != RTmp)
 		return;
-	if (optab[i->op].canfold) {
+	if (qbe_optab[i->op].canfold) {
 		l = latval(i->arg[0]);
 		if (!req(i->arg[1], R))
 			r = latval(i->arg[1]);
@@ -181,7 +181,7 @@ renref(Ref *r)
 
 /* require rpo, use, pred */
 void
-fold(Fn *fn)
+qbe_fold(Fn *fn)
 {
 	Edge *e, start;
 	Use *u;
@@ -191,9 +191,9 @@ fold(Fn *fn)
 	int t, d;
 	uint n, a;
 
-	val = emalloc(fn->ntmp * sizeof val[0]);
-	edge = emalloc(fn->nblk * sizeof edge[0]);
-	usewrk = vnew(0, sizeof usewrk[0], PHeap);
+	val = qbe_emalloc(fn->ntmp * sizeof val[0]);
+	edge = qbe_emalloc(fn->nblk * sizeof edge[0]);
+	usewrk = qbe_vnew(0, sizeof usewrk[0], PHeap);
 
 	for (t=0; t<fn->ntmp; t++)
 		val[t] = Top;
@@ -254,7 +254,7 @@ fold(Fn *fn)
 			break;
 	}
 
-	if (debug['F']) {
+	if (qbe_debug['F']) {
 		fprintf(stderr, "\n> SCCP findings:");
 		for (t=Tmp0; t<fn->ntmp; t++) {
 			if (val[t] == Bot)
@@ -263,7 +263,7 @@ fold(Fn *fn)
 			if (val[t] == Top)
 				fprintf(stderr, "Top");
 			else
-				printref(CON(val[t]), fn, stderr);
+				qbe_printref(CON(val[t]), fn, stderr);
 		}
 		fprintf(stderr, "\n dead code: ");
 	}
@@ -273,10 +273,10 @@ fold(Fn *fn)
 	for (pb=&fn->start; (b=*pb);) {
 		if (b->visit == 0) {
 			d = 1;
-			if (debug['F'])
+			if (qbe_debug['F'])
 				fprintf(stderr, "%s ", b->name);
-			edgedel(b, &b->s1);
-			edgedel(b, &b->s2);
+			qbe_edgedel(b, &b->s1);
+			qbe_edgedel(b, &b->s2);
 			*pb = b->link;
 			continue;
 		}
@@ -302,27 +302,27 @@ fold(Fn *fn)
 		renref(&b->jmp.arg);
 		if (b->jmp.type == Jjnz && rtype(b->jmp.arg) == RCon) {
 				if (iscon(&fn->con[b->jmp.arg.val], 0, 0)) {
-					edgedel(b, &b->s1);
+					qbe_edgedel(b, &b->s1);
 					b->s1 = b->s2;
 					b->s2 = 0;
 				} else
-					edgedel(b, &b->s2);
+					qbe_edgedel(b, &b->s2);
 				b->jmp.type = Jjmp;
 				b->jmp.arg = R;
 		}
 		pb = &b->link;
 	}
 
-	if (debug['F']) {
+	if (qbe_debug['F']) {
 		if (!d)
 			fprintf(stderr, "(none)");
 		fprintf(stderr, "\n\n> After constant folding:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 
 	free(val);
 	free(edge);
-	vfree(usewrk);
+	qbe_vfree(usewrk);
 }
 
 /* boring folding code */
@@ -361,7 +361,7 @@ foldint(Con *res, int op, int w, Con *cl, Con *cr)
 			if (cr->type != CAddr) {
 				typ = CAddr;
 				sym = cl->sym;
-			} else if (!symeq(cl->sym, cr->sym))
+			} else if (!qbe_symeq(cl->sym, cr->sym))
 				return 1;
 		}
 		else if (cr->type == CAddr)
@@ -472,7 +472,7 @@ foldflt(Con *res, int op, int w, Con *cl, Con *cr)
 	double xd, ld, rd;
 
 	if (cl->type != CBits || cr->type != CBits)
-		err("invalid address operand for '%s'", optab[op].name);
+		qbe_err("invalid address operand for '%s'", qbe_optab[op].name);
 	*res = (Con){.type = CBits};
 	memset(&res->bits, 0, sizeof(res->bits));
 	if (w)  {
@@ -529,7 +529,7 @@ opfold(int op, int cls, Con *cl, Con *cr, Fn *fn)
 		foldflt(&c, op, cls == Kd, cl, cr);
 	if (!KWIDE(cls))
 		c.bits.i &= 0xffffffff;
-	r = newcon(&c, fn);
+	r = qbe_newcon(&c, fn);
 	assert(!(cls == Ks || cls == Kd) || c.flt);
 	return r.val;
 }

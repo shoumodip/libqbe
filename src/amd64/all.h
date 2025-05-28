@@ -54,17 +54,17 @@ struct Amd64Op {
 };
 
 /* targ.c */
-extern Amd64Op amd64_op[];
+extern Amd64Op qbe_amd64_op[];
 
 /* sysv.c (abi) */
-extern int amd64_sysv_rsave[];
-extern int amd64_sysv_rclob[];
-bits amd64_sysv_retregs(Ref, int[2]);
-bits amd64_sysv_argregs(Ref, int[2]);
-void amd64_sysv_abi(Fn *);
+extern int qbe_amd64_sysv_rsave[];
+extern int qbe_amd64_sysv_rclob[];
+bits qbe_amd64_sysv_retregs(Ref, int[2]);
+bits qbe_amd64_sysv_argregs(Ref, int[2]);
+void qbe_amd64_sysv_abi(Fn *);
 
 /* isel.c */
-void amd64_isel(Fn *);
+void qbe_amd64_isel(Fn *);
 
 /* emit.c */
-void amd64_emitfn(Fn *, FILE *);
+void qbe_amd64_emitfn(Fn *, FILE *);

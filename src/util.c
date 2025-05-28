@@ -30,8 +30,8 @@ enum {
 	IMask = (1<<IBits) - 1,
 };
 
-Typ *typ;
-Ins insb[NIns], *curi;
+Typ *qbe_typ;
+Ins qbe_insb[NIns], *qbe_curi;
 
 static void *ptr[NPtr];
 static void **pool = ptr;
@@ -40,7 +40,7 @@ static int nptr = 1;
 static Bucket itbl[IMask+1]; /* string interning table */
 
 uint32_t
-hash(char *s)
+qbe_hash(char *s)
 {
 	uint32_t h;
 
@@ -50,7 +50,7 @@ hash(char *s)
 }
 
 void
-die_(char *file, char *s, ...)
+qbe_die_(char *file, char *s, ...)
 {
 	va_list ap;
 
@@ -63,7 +63,7 @@ die_(char *file, char *s, ...)
 }
 
 void *
-emalloc(size_t n)
+qbe_emalloc(size_t n)
 {
 	void *p;
 
@@ -74,23 +74,23 @@ emalloc(size_t n)
 }
 
 void *
-alloc(size_t n)
+qbe_alloc(size_t n)
 {
 	void **pp;
 
 	if (n == 0)
 		return 0;
 	if (nptr >= NPtr) {
-		pp = emalloc(NPtr * sizeof(void *));
+		pp = qbe_emalloc(NPtr * sizeof(void *));
 		pp[0] = pool;
 		pool = pp;
 		nptr = 1;
 	}
-	return pool[nptr++] = emalloc(n);
+	return pool[nptr++] = qbe_emalloc(n);
 }
 
 void
-freeall()
+qbe_freeall()
 {
 	void **pp;
 
@@ -108,7 +108,7 @@ freeall()
 }
 
 void *
-vnew(ulong len, size_t esz, Pool pool)
+qbe_vnew(ulong len, size_t esz, Pool pool)
 {
 	void *(*f)(size_t);
 	ulong cap;
@@ -116,7 +116,7 @@ vnew(ulong len, size_t esz, Pool pool)
 
 	for (cap=VMin; cap<len; cap*=2)
 		;
-	f = pool == PHeap ? emalloc : alloc;
+	f = pool == PHeap ? qbe_emalloc : qbe_alloc;
 	v = f(cap * esz + sizeof(Vec));
 	v->mag = VMag;
 	v->cap = cap;
@@ -126,7 +126,7 @@ vnew(ulong len, size_t esz, Pool pool)
 }
 
 void
-vfree(void *p)
+qbe_vfree(void *p)
 {
 	Vec *v;
 
@@ -139,7 +139,7 @@ vfree(void *p)
 }
 
 void
-vgrow(void *vp, ulong len)
+qbe_vgrow(void *vp, ulong len)
 {
 	Vec *v;
 	void *v1;
@@ -148,14 +148,14 @@ vgrow(void *vp, ulong len)
 	assert(v+1 && v->mag == VMag);
 	if (v->cap >= len)
 		return;
-	v1 = vnew(len, v->esz, v->pool);
+	v1 = qbe_vnew(len, v->esz, v->pool);
 	memcpy(v1, v+1, v->cap * v->esz);
-	vfree(v+1);
+	qbe_vfree(v+1);
 	*(Vec **)vp = v1;
 }
 
 void
-strf(char str[NString], char *s, ...)
+qbe_strf(char str[NString], char *s, ...)
 {
 	va_list ap;
 
@@ -165,13 +165,13 @@ strf(char str[NString], char *s, ...)
 }
 
 uint32_t
-intern(char *s)
+qbe_intern(char *s)
 {
 	Bucket *b;
 	uint32_t h;
 	uint i, n;
 
-	h = hash(s) & IMask;
+	h = qbe_hash(s) & IMask;
 	b = &itbl[h];
 	n = b->nstr;
 
@@ -182,31 +182,31 @@ intern(char *s)
 	if (n == 1<<(32-IBits))
 		die("interning table overflow");
 	if (n == 0)
-		b->str = vnew(1, sizeof b->str[0], PHeap);
+		b->str = qbe_vnew(1, sizeof b->str[0], PHeap);
 	else if ((n & (n-1)) == 0)
-		vgrow(&b->str, n+n);
+		qbe_vgrow(&b->str, n+n);
 
-	b->str[n] = emalloc(strlen(s)+1);
+	b->str[n] = qbe_emalloc(strlen(s)+1);
 	b->nstr = n + 1;
 	strcpy(b->str[n], s);
 	return h + (n<<IBits);
 }
 
 char *
-str(uint32_t id)
+qbe_str(uint32_t id)
 {
 	assert(id>>IBits < itbl[id&IMask].nstr);
 	return itbl[id&IMask].str[id>>IBits];
 }
 
 int
-isreg(Ref r)
+qbe_isreg(Ref r)
 {
 	return rtype(r) == RTmp && r.val < Tmp0;
 }
 
 int
-iscmp(int op, int *pk, int *pc)
+qbe_iscmp(int op, int *pk, int *pc)
 {
 	if (Ocmpw <= op && op <= Ocmpw1) {
 		*pc = op - Ocmpw;
@@ -230,38 +230,38 @@ iscmp(int op, int *pk, int *pc)
 }
 
 int
-argcls(Ins *i, int n)
+qbe_argcls(Ins *i, int n)
 {
-	return optab[i->op].argcls[n][i->cls];
+	return qbe_optab[i->op].argcls[n][i->cls];
 }
 
 void
-emit(int op, int k, Ref to, Ref arg0, Ref arg1)
+qbe_emit(int op, int k, Ref to, Ref arg0, Ref arg1)
 {
-	if (curi == insb)
+	if (qbe_curi == qbe_insb)
 		die("emit, too many instructions");
-	*--curi = (Ins){
+	*--qbe_curi = (Ins){
 		.op = op, .cls = k,
 		.to = to, .arg = {arg0, arg1}
 	};
 }
 
 void
-emiti(Ins i)
+qbe_emiti(Ins i)
 {
-	emit(i.op, i.cls, i.to, i.arg[0], i.arg[1]);
+	qbe_emit(i.op, i.cls, i.to, i.arg[0], i.arg[1]);
 }
 
 void
-idup(Ins **pd, Ins *s, ulong n)
+qbe_idup(Ins **pd, Ins *s, ulong n)
 {
-	*pd = alloc(n * sizeof(Ins));
+	*pd = qbe_alloc(n * sizeof(Ins));
 	if (n)
 		memcpy(*pd, s, n * sizeof(Ins));
 }
 
 Ins *
-icpy(Ins *d, Ins *s, ulong n)
+qbe_icpy(Ins *d, Ins *s, ulong n)
 {
 	if (n)
 		memcpy(d, s, n * sizeof(Ins));
@@ -291,21 +291,21 @@ static int cmptab[][2] ={
 };
 
 int
-cmpneg(int c)
+qbe_cmpneg(int c)
 {
 	assert(0 <= c && c < NCmp);
 	return cmptab[c][0];
 }
 
 int
-cmpop(int c)
+qbe_cmpop(int c)
 {
 	assert(0 <= c && c < NCmp);
 	return cmptab[c][1];
 }
 
 int
-clsmerge(short *pk, short k)
+qbe_clsmerge(short *pk, short k)
 {
 	short k1;
 
@@ -322,29 +322,29 @@ clsmerge(short *pk, short k)
 }
 
 int
-phicls(int t, Tmp *tmp)
+qbe_phicls(int t, Tmp *tmp)
 {
 	int t1;
 
 	t1 = tmp[t].phi;
 	if (!t1)
 		return t;
-	t1 = phicls(t1, tmp);
+	t1 = qbe_phicls(t1, tmp);
 	tmp[t].phi = t1;
 	return t1;
 }
 
 Ref
-newtmp(char *prfx, int k,  Fn *fn)
+qbe_newtmp(char *prfx, int k,  Fn *fn)
 {
 	static int n;
 	int t;
 
 	t = fn->ntmp++;
-	vgrow(&fn->tmp, fn->ntmp);
+	qbe_vgrow(&fn->tmp, fn->ntmp);
 	memset(&fn->tmp[t], 0, sizeof(Tmp));
 	if (prfx)
-		strf(fn->tmp[t].name, "%s.%d", prfx, ++n);
+		qbe_strf(fn->tmp[t].name, "%s.%d", prfx, ++n);
 	fn->tmp[t].cls = k;
 	fn->tmp[t].slot = -1;
 	fn->tmp[t].nuse = +1;
@@ -353,20 +353,20 @@ newtmp(char *prfx, int k,  Fn *fn)
 }
 
 void
-chuse(Ref r, int du, Fn *fn)
+qbe_chuse(Ref r, int du, Fn *fn)
 {
 	if (rtype(r) == RTmp)
 		fn->tmp[r.val].nuse += du;
 }
 
 int
-symeq(Sym s0, Sym s1)
+qbe_symeq(Sym s0, Sym s1)
 {
 	return s0.type == s1.type && s0.id == s1.id;
 }
 
 Ref
-newcon(Con *c0, Fn *fn)
+qbe_newcon(Con *c0, Fn *fn)
 {
 	Con *c1;
 	int i;
@@ -374,17 +374,17 @@ newcon(Con *c0, Fn *fn)
 	for (i=1; i<fn->ncon; i++) {
 		c1 = &fn->con[i];
 		if (c0->type == c1->type
-		&& symeq(c0->sym, c1->sym)
+		&& qbe_symeq(c0->sym, c1->sym)
 		&& c0->bits.i == c1->bits.i)
 			return CON(i);
 	}
-	vgrow(&fn->con, ++fn->ncon);
+	qbe_vgrow(&fn->con, ++fn->ncon);
 	fn->con[i] = *c0;
 	return CON(i);
 }
 
 Ref
-getcon(int64_t val, Fn *fn)
+qbe_getcon(int64_t val, Fn *fn)
 {
 	int c;
 
@@ -392,13 +392,13 @@ getcon(int64_t val, Fn *fn)
 		if (fn->con[c].type == CBits
 		&& fn->con[c].bits.i == val)
 			return CON(c);
-	vgrow(&fn->con, ++fn->ncon);
+	qbe_vgrow(&fn->con, ++fn->ncon);
 	fn->con[c] = (Con){.type = CBits, .bits.i = val};
 	return CON(c);
 }
 
 int
-addcon(Con *c0, Con *c1)
+qbe_addcon(Con *c0, Con *c1)
 {
 	if (c0->type == CUndef)
 		*c0 = *c1;
@@ -415,7 +415,7 @@ addcon(Con *c0, Con *c1)
 }
 
 void
-salloc(Ref rt, Ref rs, Fn *fn)
+qbe_salloc(Ref rt, Ref rs, Fn *fn)
 {
 	Ref r0, r1;
 	int64_t sz;
@@ -428,28 +428,28 @@ salloc(Ref rt, Ref rs, Fn *fn)
 	if (rtype(rs) == RCon) {
 		sz = fn->con[rs.val].bits.i;
 		if (sz < 0 || sz >= INT_MAX-15)
-			err("invalid alloc size %"PRId64, sz);
+			qbe_err("invalid alloc size %"PRId64, sz);
 		sz = (sz + 15)  & -16;
-		emit(Osalloc, Kl, rt, getcon(sz, fn), R);
+		qbe_emit(Osalloc, Kl, rt, qbe_getcon(sz, fn), R);
 	} else {
 		/* r0 = (r + 15) & -16 */
-		r0 = newtmp("isel", Kl, fn);
-		r1 = newtmp("isel", Kl, fn);
-		emit(Osalloc, Kl, rt, r0, R);
-		emit(Oand, Kl, r0, r1, getcon(-16, fn));
-		emit(Oadd, Kl, r1, rs, getcon(15, fn));
+		r0 = qbe_newtmp("isel", Kl, fn);
+		r1 = qbe_newtmp("isel", Kl, fn);
+		qbe_emit(Osalloc, Kl, rt, r0, R);
+		qbe_emit(Oand, Kl, r0, r1, qbe_getcon(-16, fn));
+		qbe_emit(Oadd, Kl, r1, rs, qbe_getcon(15, fn));
 		if (fn->tmp[rs.val].slot != -1)
-			err("unlikely alloc argument %%%s for %%%s",
+			qbe_err("unlikely alloc argument %%%s for %%%s",
 				fn->tmp[rs.val].name, fn->tmp[rt.val].name);
 	}
 }
 
 void
-bsinit(BSet *bs, uint n)
+qbe_bsinit(BSet *bs, uint n)
 {
 	n = (n + NBit-1) / NBit;
 	bs->nt = n;
-	bs->t = alloc(n * sizeof bs->t[0]);
+	bs->t = qbe_alloc(n * sizeof bs->t[0]);
 }
 
 MAKESURE(NBit_is_64, NBit == 64);
@@ -492,7 +492,7 @@ firstbit(bits b)
 }
 
 uint
-bscount(BSet *bs)
+qbe_bscount(BSet *bs)
 {
 	uint i, n;
 
@@ -509,14 +509,14 @@ bsmax(BSet *bs)
 }
 
 void
-bsset(BSet *bs, uint elt)
+qbe_bsset(BSet *bs, uint elt)
 {
 	assert(elt < bsmax(bs));
 	bs->t[elt/NBit] |= BIT(elt%NBit);
 }
 
 void
-bsclr(BSet *bs, uint elt)
+qbe_bsclr(BSet *bs, uint elt)
 {
 	assert(elt < bsmax(bs));
 	bs->t[elt/NBit] &= ~BIT(elt%NBit);
@@ -533,13 +533,13 @@ bsclr(BSet *bs, uint elt)
 			a->t[i] op b->t[i];   \
 	}
 
-BSOP(bscopy, =)
-BSOP(bsunion, |=)
-BSOP(bsinter, &=)
-BSOP(bsdiff, &= ~)
+BSOP(qbe_bscopy, =)
+BSOP(qbe_bsunion, |=)
+BSOP(qbe_bsinter, &=)
+BSOP(qbe_bsdiff, &= ~)
 
 int
-bsequal(BSet *a, BSet *b)
+qbe_bsequal(BSet *a, BSet *b)
 {
 	uint i;
 
@@ -551,7 +551,7 @@ bsequal(BSet *a, BSet *b)
 }
 
 void
-bszero(BSet *bs)
+qbe_bszero(BSet *bs)
 {
 	memset(bs->t, 0, bs->nt * sizeof bs->t[0]);
 }
@@ -563,7 +563,7 @@ bszero(BSet *bs)
  *
  */
 int
-bsiter(BSet *bs, int *elt)
+qbe_bsiter(BSet *bs, int *elt)
 {
 	bits b;
 	uint t, i;
@@ -585,12 +585,12 @@ bsiter(BSet *bs, int *elt)
 }
 
 void
-dumpts(BSet *bs, Tmp *tmp, FILE *f)
+qbe_dumpts(BSet *bs, Tmp *tmp, FILE *f)
 {
 	int t;
 
 	fprintf(f, "[");
-	for (t=Tmp0; bsiter(bs, &t); t++)
+	for (t=Tmp0; qbe_bsiter(bs, &t); t++)
 		fprintf(f, " %s", tmp[t].name);
 	fprintf(f, " ]\n");
 }

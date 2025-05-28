@@ -49,7 +49,7 @@ int main(void) {
         exit(1);
     }
 
-    qbeCompile(QBE_TARGET_DEFAULT, qbeInput, ccInput);
+    qbe_compile(QBE_TARGET_DEFAULT, qbeInput, ccInput);
     fclose(qbeInput);
     fclose(ccInput);
 

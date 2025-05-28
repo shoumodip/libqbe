@@ -49,8 +49,8 @@ classify(AClass *a, Typ *t, uint s)
 				s += f->len;
 				break;
 			case FTyp:
-				classify(a, &typ[f->len], s);
-				s += typ[f->len].size;
+				classify(a, &qbe_typ[f->len], s);
+				s += qbe_typ[f->len].size;
 				break;
 			}
 		}
@@ -123,29 +123,29 @@ selret(Blk *b, Fn *fn)
 	b->jmp.type = Jret0;
 
 	if (j == Jretc) {
-		typclass(&aret, &typ[fn->retty]);
+		typclass(&aret, &qbe_typ[fn->retty]);
 		if (aret.inmem) {
 			assert(rtype(fn->retr) == RTmp);
-			emit(Ocopy, Kl, TMP(RAX), fn->retr, R);
-			emit(Oblit1, 0, R, INT(aret.type->size), R);
-			emit(Oblit0, 0, R, r0, fn->retr);
+			qbe_emit(Ocopy, Kl, TMP(RAX), fn->retr, R);
+			qbe_emit(Oblit1, 0, R, INT(aret.type->size), R);
+			qbe_emit(Oblit0, 0, R, r0, fn->retr);
 			ca = 1;
 		} else {
 			ca = retr(reg, &aret);
 			if (aret.size > 8) {
-				r = newtmp("abi", Kl, fn);
-				emit(Oload, Kl, reg[1], r, R);
-				emit(Oadd, Kl, r, r0, getcon(8, fn));
+				r = qbe_newtmp("abi", Kl, fn);
+				qbe_emit(Oload, Kl, reg[1], r, R);
+				qbe_emit(Oadd, Kl, r, r0, qbe_getcon(8, fn));
 			}
-			emit(Oload, Kl, reg[0], r0, R);
+			qbe_emit(Oload, Kl, reg[0], r0, R);
 		}
 	} else {
 		k = j - Jretw;
 		if (KBASE(k) == 0) {
-			emit(Ocopy, k, TMP(RAX), r0, R);
+			qbe_emit(Ocopy, k, TMP(RAX), r0, R);
 			ca = 1;
 		} else {
-			emit(Ocopy, k, TMP(XMM0), r0, R);
+			qbe_emit(Ocopy, k, TMP(XMM0), r0, R);
 			ca = 1 << 2;
 		}
 	}
@@ -185,7 +185,7 @@ argsclass(Ins *i0, Ins *i1, AClass *ac, int op, AClass *aret, Ref *env)
 			break;
 		case Oargc:
 			n = i->arg[0].val;
-			typclass(a, &typ[n]);
+			typclass(a, &qbe_typ[n]);
 			if (a->inmem)
 				continue;
 			ni = ns = 0;
@@ -215,21 +215,21 @@ argsclass(Ins *i0, Ins *i1, AClass *ac, int op, AClass *aret, Ref *env)
 		}
 
 	if (varc && envc)
-		err("sysv abi does not support variadic env calls");
+		qbe_err("sysv abi does not support variadic env calls");
 
 	return ((varc|envc) << 12) | ((6-nint) << 4) | ((8-nsse) << 8);
 }
 
-int amd64_sysv_rsave[] = {
+int qbe_amd64_sysv_rsave[] = {
 	RDI, RSI, RDX, RCX, R8, R9, R10, R11, RAX,
 	XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
 	XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, -1
 };
-int amd64_sysv_rclob[] = {RBX, R12, R13, R14, R15, -1};
+int qbe_amd64_sysv_rclob[] = {RBX, R12, R13, R14, R15, -1};
 
 MAKESURE(sysv_arrays_ok,
-	sizeof amd64_sysv_rsave == (NGPS+NFPS+1) * sizeof(int) &&
-	sizeof amd64_sysv_rclob == (NCLR+1) * sizeof(int)
+	sizeof qbe_amd64_sysv_rsave == (NGPS+NFPS+1) * sizeof(int) &&
+	sizeof qbe_amd64_sysv_rclob == (NCLR+1) * sizeof(int)
 );
 
 /* layout of call's second argument (RCall)
@@ -244,7 +244,7 @@ MAKESURE(sysv_arrays_ok,
  */
 
 bits
-amd64_sysv_retregs(Ref r, int p[2])
+qbe_amd64_sysv_retregs(Ref r, int p[2])
 {
 	bits b;
 	int ni, nf;
@@ -269,7 +269,7 @@ amd64_sysv_retregs(Ref r, int p[2])
 }
 
 bits
-amd64_sysv_argregs(Ref r, int p[2])
+qbe_amd64_sysv_argregs(Ref r, int p[2])
 {
 	bits b;
 	int j, ni, nf, ra;
@@ -280,7 +280,7 @@ amd64_sysv_argregs(Ref r, int p[2])
 	nf = (r.val >> 8) & 15;
 	ra = (r.val >> 12) & 1;
 	for (j=0; j<ni; j++)
-		b |= BIT(amd64_sysv_rsave[j]);
+		b |= BIT(qbe_amd64_sysv_rsave[j]);
 	for (j=0; j<nf; j++)
 		b |= BIT(XMM0+j);
 	if (p) {
@@ -294,7 +294,7 @@ static Ref
 rarg(int ty, int *ni, int *ns)
 {
 	if (KBASE(ty) == 0)
-		return TMP(amd64_sysv_rsave[(*ni)++]);
+		return TMP(qbe_amd64_sysv_rsave[(*ni)++]);
 	else
 		return TMP(XMM0 + (*ns)++);
 }
@@ -310,11 +310,11 @@ selcall(Fn *fn, Ins *i0, Ins *i1, RAlloc **rap)
 	RAlloc *ra;
 
 	env = R;
-	ac = alloc((i1-i0) * sizeof ac[0]);
+	ac = qbe_alloc((i1-i0) * sizeof ac[0]);
 
 	if (!req(i1->arg[1], R)) {
 		assert(rtype(i1->arg[1]) == RType);
-		typclass(&aret, &typ[i1->arg[1].val]);
+		typclass(&aret, &qbe_typ[i1->arg[1].val]);
 		ca = argsclass(i0, i1, ac, Oarg, &aret, &env);
 	} else
 		ca = argsclass(i0, i1, ac, Oarg, 0, &env);
@@ -322,23 +322,23 @@ selcall(Fn *fn, Ins *i0, Ins *i1, RAlloc **rap)
 	for (stk=0, a=&ac[i1-i0]; a>ac;)
 		if ((--a)->inmem) {
 			if (a->align > 4)
-				err("sysv abi requires alignments of 16 or less");
+				qbe_err("sysv abi requires alignments of 16 or less");
 			stk += a->size;
 			if (a->align == 4)
 				stk += stk & 15;
 		}
 	stk += stk & 15;
 	if (stk) {
-		r = getcon(-(int64_t)stk, fn);
-		emit(Osalloc, Kl, R, r, R);
+		r = qbe_getcon(-(int64_t)stk, fn);
+		qbe_emit(Osalloc, Kl, R, r, R);
 	}
 
 	if (!req(i1->arg[1], R)) {
 		if (aret.inmem) {
 			/* get the return location from eax
 			 * it saves one callee-save reg */
-			r1 = newtmp("abi", Kl, fn);
-			emit(Ocopy, Kl, i1->to, TMP(RAX), R);
+			r1 = qbe_newtmp("abi", Kl, fn);
+			qbe_emit(Ocopy, Kl, i1->to, TMP(RAX), R);
 			ca += 1;
 		} else {
 			/* todo, may read out of bounds.
@@ -346,47 +346,47 @@ selcall(Fn *fn, Ins *i0, Ins *i1, RAlloc **rap)
 			 * this should still be fixed.
 			 */
 			if (aret.size > 8) {
-				r = newtmp("abi", Kl, fn);
-				aret.ref[1] = newtmp("abi", aret.cls[1], fn);
-				emit(Ostorel, 0, R, aret.ref[1], r);
-				emit(Oadd, Kl, r, i1->to, getcon(8, fn));
+				r = qbe_newtmp("abi", Kl, fn);
+				aret.ref[1] = qbe_newtmp("abi", aret.cls[1], fn);
+				qbe_emit(Ostorel, 0, R, aret.ref[1], r);
+				qbe_emit(Oadd, Kl, r, i1->to, qbe_getcon(8, fn));
 			}
-			aret.ref[0] = newtmp("abi", aret.cls[0], fn);
-			emit(Ostorel, 0, R, aret.ref[0], i1->to);
+			aret.ref[0] = qbe_newtmp("abi", aret.cls[0], fn);
+			qbe_emit(Ostorel, 0, R, aret.ref[0], i1->to);
 			ca += retr(reg, &aret);
 			if (aret.size > 8)
-				emit(Ocopy, aret.cls[1], aret.ref[1], reg[1], R);
-			emit(Ocopy, aret.cls[0], aret.ref[0], reg[0], R);
+				qbe_emit(Ocopy, aret.cls[1], aret.ref[1], reg[1], R);
+			qbe_emit(Ocopy, aret.cls[0], aret.ref[0], reg[0], R);
 			r1 = i1->to;
 		}
 		/* allocate return pad */
-		ra = alloc(sizeof *ra);
+		ra = qbe_alloc(sizeof *ra);
 		/* specific to NAlign == 3 */
 		al = aret.align >= 2 ? aret.align - 2 : 0;
-		ra->i = (Ins){Oalloc+al, Kl, r1, {getcon(aret.size, fn)}};
+		ra->i = (Ins){Oalloc+al, Kl, r1, {qbe_getcon(aret.size, fn)}};
 		ra->link = (*rap);
 		*rap = ra;
 	} else {
 		ra = 0;
 		if (KBASE(i1->cls) == 0) {
-			emit(Ocopy, i1->cls, i1->to, TMP(RAX), R);
+			qbe_emit(Ocopy, i1->cls, i1->to, TMP(RAX), R);
 			ca += 1;
 		} else {
-			emit(Ocopy, i1->cls, i1->to, TMP(XMM0), R);
+			qbe_emit(Ocopy, i1->cls, i1->to, TMP(XMM0), R);
 			ca += 1 << 2;
 		}
 	}
 
-	emit(Ocall, i1->cls, R, i1->arg[0], CALL(ca));
+	qbe_emit(Ocall, i1->cls, R, i1->arg[0], CALL(ca));
 
 	if (!req(R, env))
-		emit(Ocopy, Kl, TMP(RAX), env, R);
+		qbe_emit(Ocopy, Kl, TMP(RAX), env, R);
 	else if ((ca >> 12) & 1) /* vararg call */
-		emit(Ocopy, Kw, TMP(RAX), getcon((ca >> 8) & 15, fn), R);
+		qbe_emit(Ocopy, Kw, TMP(RAX), qbe_getcon((ca >> 8) & 15, fn), R);
 
 	ni = ns = 0;
 	if (ra && aret.inmem)
-		emit(Ocopy, Kl, rarg(Kl, &ni, &ns), ra->i.to, R); /* pass hidden argument */
+		qbe_emit(Ocopy, Kl, rarg(Kl, &ni, &ns), ra->i.to, R); /* pass hidden argument */
 
 	for (i=i0, a=ac; i<i1; i++, a++) {
 		if (i->op >= Oarge || a->inmem)
@@ -395,34 +395,34 @@ selcall(Fn *fn, Ins *i0, Ins *i1, RAlloc **rap)
 		if (i->op == Oargc) {
 			if (a->size > 8) {
 				r2 = rarg(a->cls[1], &ni, &ns);
-				r = newtmp("abi", Kl, fn);
-				emit(Oload, a->cls[1], r2, r, R);
-				emit(Oadd, Kl, r, i->arg[1], getcon(8, fn));
+				r = qbe_newtmp("abi", Kl, fn);
+				qbe_emit(Oload, a->cls[1], r2, r, R);
+				qbe_emit(Oadd, Kl, r, i->arg[1], qbe_getcon(8, fn));
 			}
-			emit(Oload, a->cls[0], r1, i->arg[1], R);
+			qbe_emit(Oload, a->cls[0], r1, i->arg[1], R);
 		} else
-			emit(Ocopy, i->cls, r1, i->arg[0], R);
+			qbe_emit(Ocopy, i->cls, r1, i->arg[0], R);
 	}
 
 	if (!stk)
 		return;
 
-	r = newtmp("abi", Kl, fn);
+	r = qbe_newtmp("abi", Kl, fn);
 	for (i=i0, a=ac, off=0; i<i1; i++, a++) {
 		if (i->op >= Oarge || !a->inmem)
 			continue;
-		r1 = newtmp("abi", Kl, fn);
+		r1 = qbe_newtmp("abi", Kl, fn);
 		if (i->op == Oargc) {
 			if (a->align == 4)
 				off += off & 15;
-			emit(Oblit1, 0, R, INT(a->type->size), R);
-			emit(Oblit0, 0, R, i->arg[1], r1);
+			qbe_emit(Oblit1, 0, R, INT(a->type->size), R);
+			qbe_emit(Oblit0, 0, R, i->arg[1], r1);
 		} else
-			emit(Ostorel, 0, R, i->arg[0], r1);
-		emit(Oadd, Kl, r1, r, getcon(off, fn));
+			qbe_emit(Ostorel, 0, R, i->arg[0], r1);
+		qbe_emit(Oadd, Kl, r1, r, qbe_getcon(off, fn));
 		off += a->size;
 	}
-	emit(Osalloc, Kl, r, getcon(stk, fn), R);
+	qbe_emit(Osalloc, Kl, r, qbe_getcon(stk, fn), R);
 }
 
 static int
@@ -434,36 +434,36 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 	Ref r, env;
 
 	env = R;
-	ac = alloc((i1-i0) * sizeof ac[0]);
-	curi = &insb[NIns];
+	ac = qbe_alloc((i1-i0) * sizeof ac[0]);
+	qbe_curi = &qbe_insb[NIns];
 	ni = ns = 0;
 
 	if (fn->retty >= 0) {
-		typclass(&aret, &typ[fn->retty]);
+		typclass(&aret, &qbe_typ[fn->retty]);
 		fa = argsclass(i0, i1, ac, Opar, &aret, &env);
 	} else
 		fa = argsclass(i0, i1, ac, Opar, 0, &env);
-	fn->reg = amd64_sysv_argregs(CALL(fa), 0);
+	fn->reg = qbe_amd64_sysv_argregs(CALL(fa), 0);
 
 	for (i=i0, a=ac; i<i1; i++, a++) {
 		if (i->op != Oparc || a->inmem)
 			continue;
 		if (a->size > 8) {
-			r = newtmp("abi", Kl, fn);
-			a->ref[1] = newtmp("abi", Kl, fn);
-			emit(Ostorel, 0, R, a->ref[1], r);
-			emit(Oadd, Kl, r, i->to, getcon(8, fn));
+			r = qbe_newtmp("abi", Kl, fn);
+			a->ref[1] = qbe_newtmp("abi", Kl, fn);
+			qbe_emit(Ostorel, 0, R, a->ref[1], r);
+			qbe_emit(Oadd, Kl, r, i->to, qbe_getcon(8, fn));
 		}
-		a->ref[0] = newtmp("abi", Kl, fn);
-		emit(Ostorel, 0, R, a->ref[0], i->to);
+		a->ref[0] = qbe_newtmp("abi", Kl, fn);
+		qbe_emit(Ostorel, 0, R, a->ref[0], i->to);
 		/* specific to NAlign == 3 */
 		al = a->align >= 2 ? a->align - 2 : 0;
-		emit(Oalloc+al, Kl, i->to, getcon(a->size, fn), R);
+		qbe_emit(Oalloc+al, Kl, i->to, qbe_getcon(a->size, fn), R);
 	}
 
 	if (fn->retty >= 0 && aret.inmem) {
-		r = newtmp("abi", Kl, fn);
-		emit(Ocopy, Kl, r, rarg(Kl, &ni, &ns), R);
+		r = qbe_newtmp("abi", Kl, fn);
+		qbe_emit(Ocopy, Kl, r, rarg(Kl, &ni, &ns), R);
 		fn->retr = r;
 	}
 
@@ -471,14 +471,14 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 		switch (a->inmem) {
 		case 1:
 			if (a->align > 4)
-				err("sysv abi requires alignments of 16 or less");
+				qbe_err("sysv abi requires alignments of 16 or less");
 			if (a->align == 4)
 				s = (s+3) & -4;
 			fn->tmp[i->to.val].slot = -s;
 			s += a->size / 4;
 			continue;
 		case 2:
-			emit(Oload, i->cls, i->to, SLOT(-s), R);
+			qbe_emit(Oload, i->cls, i->to, SLOT(-s), R);
 			s += 2;
 			continue;
 		}
@@ -486,17 +486,17 @@ selpar(Fn *fn, Ins *i0, Ins *i1)
 			continue;
 		r = rarg(a->cls[0], &ni, &ns);
 		if (i->op == Oparc) {
-			emit(Ocopy, a->cls[0], a->ref[0], r, R);
+			qbe_emit(Ocopy, a->cls[0], a->ref[0], r, R);
 			if (a->size > 8) {
 				r = rarg(a->cls[1], &ni, &ns);
-				emit(Ocopy, a->cls[1], a->ref[1], r, R);
+				qbe_emit(Ocopy, a->cls[1], a->ref[1], r, R);
 			}
 		} else
-			emit(Ocopy, i->cls, i->to, r, R);
+			qbe_emit(Ocopy, i->cls, i->to, r, R);
 	}
 
 	if (!req(R, env))
-		emit(Ocopy, Kl, env, TMP(RAX), R);
+		qbe_emit(Ocopy, Kl, env, TMP(RAX), R);
 
 	return fa | (s*4)<<12;
 }
@@ -507,12 +507,12 @@ split(Fn *fn, Blk *b)
 	Blk *bn;
 
 	++fn->nblk;
-	bn = newblk();
-	bn->nins = &insb[NIns] - curi;
-	idup(&bn->ins, curi, bn->nins);
-	curi = &insb[NIns];
+	bn = qbe_newblk();
+	bn->nins = &qbe_insb[NIns] - qbe_curi;
+	qbe_idup(&bn->ins, qbe_curi, bn->nins);
+	qbe_curi = &qbe_insb[NIns];
 	bn->visit = ++b->visit;
-	strf(bn->name, "%s.%d", b->name, b->visit);
+	qbe_strf(bn->name, "%s.%d", b->name, b->visit);
 	bn->loop = b->loop;
 	bn->link = b->link;
 	b->link = bn;
@@ -539,9 +539,9 @@ selvaarg(Fn *fn, Blk *b, Ins *i)
 	Blk *b0, *bstk, *breg;
 	int isint;
 
-	c4 = getcon(4, fn);
-	c8 = getcon(8, fn);
-	c16 = getcon(16, fn);
+	c4 = qbe_getcon(4, fn);
+	c8 = qbe_getcon(8, fn);
+	c16 = qbe_getcon(16, fn);
 	ap = i->arg[0];
 	isint = KBASE(i->cls) == 0;
 
@@ -567,8 +567,8 @@ selvaarg(Fn *fn, Blk *b, Ins *i)
 	       i->to =(i->cls) load %loc
 	*/
 
-	loc = newtmp("abi", Kl, fn);
-	emit(Oload, i->cls, i->to, loc, R);
+	loc = qbe_newtmp("abi", Kl, fn);
+	qbe_emit(Oload, i->cls, i->to, loc, R);
 	b0 = split(fn, b);
 	b0->jmp = b->jmp;
 	b0->s1 = b->s1;
@@ -578,54 +578,54 @@ selvaarg(Fn *fn, Blk *b, Ins *i)
 	if (b->s2 && b->s2 != b->s1)
 		chpred(b->s2, b, b0);
 
-	lreg = newtmp("abi", Kl, fn);
-	nr = newtmp("abi", Kl, fn);
-	r0 = newtmp("abi", Kw, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorew, Kw, R, r0, r1);
-	emit(Oadd, Kl, r1, ap, isint ? CON_Z : c4);
-	emit(Oadd, Kw, r0, nr, isint ? c8 : c16);
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Oadd, Kl, lreg, r1, nr);
-	emit(Oload, Kl, r1, r0, R);
-	emit(Oadd, Kl, r0, ap, c16);
+	lreg = qbe_newtmp("abi", Kl, fn);
+	nr = qbe_newtmp("abi", Kl, fn);
+	r0 = qbe_newtmp("abi", Kw, fn);
+	r1 = qbe_newtmp("abi", Kl, fn);
+	qbe_emit(Ostorew, Kw, R, r0, r1);
+	qbe_emit(Oadd, Kl, r1, ap, isint ? CON_Z : c4);
+	qbe_emit(Oadd, Kw, r0, nr, isint ? c8 : c16);
+	r0 = qbe_newtmp("abi", Kl, fn);
+	r1 = qbe_newtmp("abi", Kl, fn);
+	qbe_emit(Oadd, Kl, lreg, r1, nr);
+	qbe_emit(Oload, Kl, r1, r0, R);
+	qbe_emit(Oadd, Kl, r0, ap, c16);
 	breg = split(fn, b);
 	breg->jmp.type = Jjmp;
 	breg->s1 = b0;
 
-	lstk = newtmp("abi", Kl, fn);
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, r1, r0);
-	emit(Oadd, Kl, r1, lstk, c8);
-	emit(Oload, Kl, lstk, r0, R);
-	emit(Oadd, Kl, r0, ap, c8);
+	lstk = qbe_newtmp("abi", Kl, fn);
+	r0 = qbe_newtmp("abi", Kl, fn);
+	r1 = qbe_newtmp("abi", Kl, fn);
+	qbe_emit(Ostorel, Kw, R, r1, r0);
+	qbe_emit(Oadd, Kl, r1, lstk, c8);
+	qbe_emit(Oload, Kl, lstk, r0, R);
+	qbe_emit(Oadd, Kl, r0, ap, c8);
 	bstk = split(fn, b);
 	bstk->jmp.type = Jjmp;
 	bstk->s1 = b0;
 
-	b0->phi = alloc(sizeof *b0->phi);
+	b0->phi = qbe_alloc(sizeof *b0->phi);
 	*b0->phi = (Phi){
 		.cls = Kl, .to = loc,
 		.narg = 2,
-		.blk = vnew(2, sizeof b0->phi->blk[0], PFn),
-		.arg = vnew(2, sizeof b0->phi->arg[0], PFn),
+		.blk = qbe_vnew(2, sizeof b0->phi->blk[0], PFn),
+		.arg = qbe_vnew(2, sizeof b0->phi->arg[0], PFn),
 	};
 	b0->phi->blk[0] = bstk;
 	b0->phi->blk[1] = breg;
 	b0->phi->arg[0] = lstk;
 	b0->phi->arg[1] = lreg;
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kw, fn);
+	r0 = qbe_newtmp("abi", Kl, fn);
+	r1 = qbe_newtmp("abi", Kw, fn);
 	b->jmp.type = Jjnz;
 	b->jmp.arg = r1;
 	b->s1 = breg;
 	b->s2 = bstk;
-	c = getcon(isint ? 48 : 176, fn);
-	emit(Ocmpw+Ciult, Kw, r1, nr, c);
-	emit(Oloadsw, Kl, nr, r0, R);
-	emit(Oadd, Kl, r0, ap, isint ? CON_Z : c4);
+	c = qbe_getcon(isint ? 48 : 176, fn);
+	qbe_emit(Ocmpw+Ciult, Kw, r1, nr, c);
+	qbe_emit(Oloadsw, Kl, nr, r0, R);
+	qbe_emit(Oadd, Kl, r0, ap, isint ? CON_Z : c4);
 }
 
 static void
@@ -637,24 +637,24 @@ selvastart(Fn *fn, int fa, Ref ap)
 	gp = ((fa >> 4) & 15) * 8;
 	fp = 48 + ((fa >> 8) & 15) * 16;
 	sp = fa >> 12;
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, r1, r0);
-	emit(Oadd, Kl, r1, TMP(RBP), getcon(-176, fn));
-	emit(Oadd, Kl, r0, ap, getcon(16, fn));
-	r0 = newtmp("abi", Kl, fn);
-	r1 = newtmp("abi", Kl, fn);
-	emit(Ostorel, Kw, R, r1, r0);
-	emit(Oadd, Kl, r1, TMP(RBP), getcon(sp, fn));
-	emit(Oadd, Kl, r0, ap, getcon(8, fn));
-	r0 = newtmp("abi", Kl, fn);
-	emit(Ostorew, Kw, R, getcon(fp, fn), r0);
-	emit(Oadd, Kl, r0, ap, getcon(4, fn));
-	emit(Ostorew, Kw, R, getcon(gp, fn), ap);
+	r0 = qbe_newtmp("abi", Kl, fn);
+	r1 = qbe_newtmp("abi", Kl, fn);
+	qbe_emit(Ostorel, Kw, R, r1, r0);
+	qbe_emit(Oadd, Kl, r1, TMP(RBP), qbe_getcon(-176, fn));
+	qbe_emit(Oadd, Kl, r0, ap, qbe_getcon(16, fn));
+	r0 = qbe_newtmp("abi", Kl, fn);
+	r1 = qbe_newtmp("abi", Kl, fn);
+	qbe_emit(Ostorel, Kw, R, r1, r0);
+	qbe_emit(Oadd, Kl, r1, TMP(RBP), qbe_getcon(sp, fn));
+	qbe_emit(Oadd, Kl, r0, ap, qbe_getcon(8, fn));
+	r0 = qbe_newtmp("abi", Kl, fn);
+	qbe_emit(Ostorew, Kw, R, qbe_getcon(fp, fn), r0);
+	qbe_emit(Oadd, Kl, r0, ap, qbe_getcon(4, fn));
+	qbe_emit(Ostorew, Kw, R, qbe_getcon(gp, fn), ap);
 }
 
 void
-amd64_sysv_abi(Fn *fn)
+qbe_amd64_sysv_abi(Fn *fn)
 {
 	Blk *b;
 	Ins *i, *i0, *ip;
@@ -669,10 +669,10 @@ amd64_sysv_abi(Fn *fn)
 		if (!ispar(i->op))
 			break;
 	fa = selpar(fn, b->ins, i);
-	n = b->nins - (i - b->ins) + (&insb[NIns] - curi);
-	i0 = alloc(n * sizeof(Ins));
-	ip = icpy(ip = i0, curi, &insb[NIns] - curi);
-	ip = icpy(ip, i, &b->ins[b->nins] - i);
+	n = b->nins - (i - b->ins) + (&qbe_insb[NIns] - qbe_curi);
+	i0 = qbe_alloc(n * sizeof(Ins));
+	ip = qbe_icpy(ip = i0, qbe_curi, &qbe_insb[NIns] - qbe_curi);
+	ip = qbe_icpy(ip, i, &b->ins[b->nins] - i);
 	b->nins = n;
 	b->ins = i0;
 
@@ -684,12 +684,12 @@ amd64_sysv_abi(Fn *fn)
 			b = fn->start; /* do it last */
 		if (b->visit)
 			continue;
-		curi = &insb[NIns];
+		qbe_curi = &qbe_insb[NIns];
 		selret(b, fn);
 		for (i=&b->ins[b->nins]; i!=b->ins;)
 			switch ((--i)->op) {
 			default:
-				emiti(*i);
+				qbe_emiti(*i);
 				break;
 			case Ocall:
 				for (i0=i; i0>b->ins; i0--)
@@ -710,13 +710,13 @@ amd64_sysv_abi(Fn *fn)
 			}
 		if (b == fn->start)
 			for (; ral; ral=ral->link)
-				emiti(ral->i);
-		b->nins = &insb[NIns] - curi;
-		idup(&b->ins, curi, b->nins);
+				qbe_emiti(ral->i);
+		b->nins = &qbe_insb[NIns] - qbe_curi;
+		qbe_idup(&b->ins, qbe_curi, b->nins);
 	} while (b != fn->start);
 
-	if (debug['A']) {
+	if (qbe_debug['A']) {
 		fprintf(stderr, "\n> After ABI lowering:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 }

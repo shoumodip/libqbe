@@ -12,7 +12,7 @@ adduse(Tmp *tmp, int ty, Blk *b, ...)
 		return;
 	va_start(ap, b);
 	n = tmp->nuse;
-	vgrow(&tmp->use, ++tmp->nuse);
+	qbe_vgrow(&tmp->use, ++tmp->nuse);
 	u = &tmp->use[n];
 	u->type = ty;
 	u->bid = b->id;
@@ -35,7 +35,7 @@ adduse(Tmp *tmp, int ty, Blk *b, ...)
  * must not change .visit fields
  */
 void
-filluse(Fn *fn)
+qbe_filluse(Fn *fn)
 {
 	Blk *b;
 	Phi *p;
@@ -55,7 +55,7 @@ filluse(Fn *fn)
 		tmp[t].phi = 0;
 		tmp[t].width = WFull;
 		if (tmp[t].use == 0)
-			tmp[t].use = vnew(0, sizeof(Use), PFn);
+			tmp[t].use = qbe_vnew(0, sizeof(Use), PFn);
 	}
 	for (b=fn->start; b; b=b->link) {
 		for (p=b->phi; p; p=p->link) {
@@ -64,12 +64,12 @@ filluse(Fn *fn)
 			tmp[tp].bid = b->id;
 			tmp[tp].ndef++;
 			tmp[tp].cls = p->cls;
-			tp = phicls(tp, fn->tmp);
+			tp = qbe_phicls(tp, fn->tmp);
 			for (a=0; a<p->narg; a++)
 				if (rtype(p->arg[a]) == RTmp) {
 					t = p->arg[a].val;
 					adduse(&tmp[t], UPhi, b, p);
-					t = phicls(t, fn->tmp);
+					t = qbe_phicls(t, fn->tmp);
 					if (t != tp)
 						tmp[t].phi = tp;
 				}
@@ -108,7 +108,7 @@ filluse(Fn *fn)
 static Ref
 refindex(int t, Fn *fn)
 {
-	return newtmp(fn->tmp[t].name, fn->tmp[t].cls, fn);
+	return qbe_newtmp(fn->tmp[t].name, fn->tmp[t].cls, fn);
 }
 
 static void
@@ -124,9 +124,9 @@ phiins(Fn *fn)
 	uint n, defb;
 	short k;
 
-	bsinit(u, fn->nblk);
-	bsinit(defs, fn->nblk);
-	blist = emalloc(fn->nblk * sizeof blist[0]);
+	qbe_bsinit(u, fn->nblk);
+	qbe_bsinit(defs, fn->nblk);
+	blist = qbe_emalloc(fn->nblk * sizeof blist[0]);
 	be = &blist[fn->nblk];
 	nt = fn->ntmp;
 	for (t=Tmp0; t<nt; t++) {
@@ -142,7 +142,7 @@ phiins(Fn *fn)
 			if (ok || defb == fn->start->id)
 				continue;
 		}
-		bszero(u);
+		qbe_bszero(u);
 		k = -1;
 		bp = be;
 		for (b=fn->start; b; b=b->link) {
@@ -161,10 +161,10 @@ phiins(Fn *fn)
 						i->to = r;
 					} else {
 						if (!bshas(u, b->id)) {
-							bsset(u, b->id);
+							qbe_bsset(u, b->id);
 							*--bp = b;
 						}
-						if (clsmerge(&k, i->cls))
+						if (qbe_clsmerge(&k, i->cls))
 							die("invalid input");
 					}
 				}
@@ -172,25 +172,25 @@ phiins(Fn *fn)
 			if (!req(r, R) && req(b->jmp.arg, TMP(t)))
 				b->jmp.arg = r;
 		}
-		bscopy(defs, u);
+		qbe_bscopy(defs, u);
 		while (bp != be) {
 			fn->tmp[t].visit = t;
 			b = *bp++;
-			bsclr(u, b->id);
+			qbe_bsclr(u, b->id);
 			for (n=0; n<b->nfron; n++) {
 				a = b->fron[n];
 				if (a->visit++ == 0)
 				if (bshas(a->in, t)) {
-					p = alloc(sizeof *p);
+					p = qbe_alloc(sizeof *p);
 					p->cls = k;
 					p->to = TMP(t);
 					p->link = a->phi;
-					p->arg = vnew(0, sizeof p->arg[0], PFn);
-					p->blk = vnew(0, sizeof p->blk[0], PFn);
+					p->arg = qbe_vnew(0, sizeof p->arg[0], PFn);
+					p->blk = qbe_vnew(0, sizeof p->blk[0], PFn);
 					a->phi = p;
 					if (!bshas(defs, a->id))
 					if (!bshas(u, a->id)) {
-						bsset(u, a->id);
+						qbe_bsset(u, a->id);
 						*--bp = a;
 					}
 				}
@@ -221,7 +221,7 @@ nnew(Ref r, Blk *b, Name *up)
 		/* could use alloc, here
 		 * but namel should be reset
 		 */
-		n = emalloc(sizeof *n);
+		n = qbe_emalloc(sizeof *n);
 	n->r = r;
 	n->b = b;
 	n->up = up;
@@ -256,7 +256,7 @@ getstk(int t, Blk *b, Name **stk)
 	Name *n, *n1;
 
 	n = stk[t];
-	while (n && !dom(n->b, b)) {
+	while (n && !qbe_dom(n->b, b)) {
 		n1 = n;
 		n = n->up;
 		nfree(n1);
@@ -300,8 +300,8 @@ renblk(Blk *b, Name **stk, Fn *fn)
 			t = p->to.val;
 			if ((t=fn->tmp[t].visit)) {
 				m = p->narg++;
-				vgrow(&p->arg, p->narg);
-				vgrow(&p->blk, p->narg);
+				qbe_vgrow(&p->arg, p->narg);
+				qbe_vgrow(&p->blk, p->narg);
 				p->arg[m] = getstk(t, b, stk);
 				p->blk[m] = b;
 			}
@@ -312,18 +312,18 @@ renblk(Blk *b, Name **stk, Fn *fn)
 
 /* require rpo and use */
 void
-ssa(Fn *fn)
+qbe_ssa(Fn *fn)
 {
 	Name **stk, *n;
 	int d, nt;
 	Blk *b, *b1;
 
 	nt = fn->ntmp;
-	stk = emalloc(nt * sizeof stk[0]);
-	d = debug['L'];
-	debug['L'] = 0;
-	filldom(fn);
-	if (debug['N']) {
+	stk = qbe_emalloc(nt * sizeof stk[0]);
+	d = qbe_debug['L'];
+	qbe_debug['L'] = 0;
+	qbe_filldom(fn);
+	if (qbe_debug['N']) {
 		fprintf(stderr, "\n> Dominators:\n");
 		for (b1=fn->start; b1; b1=b1->link) {
 			if (!b1->dom)
@@ -334,8 +334,8 @@ ssa(Fn *fn)
 			fprintf(stderr, "\n");
 		}
 	}
-	fillfron(fn);
-	filllive(fn);
+	qbe_fillfron(fn);
+	qbe_filllive(fn);
 	phiins(fn);
 	renblk(fn->start, stk, fn);
 	while (nt--)
@@ -343,11 +343,11 @@ ssa(Fn *fn)
 			stk[nt] = n->up;
 			nfree(n);
 		}
-	debug['L'] = d;
+	qbe_debug['L'] = d;
 	free(stk);
-	if (debug['N']) {
+	if (qbe_debug['N']) {
 		fprintf(stderr, "\n> After SSA construction:\n");
-		printfn(fn, stderr);
+		qbe_printfn(fn, stderr);
 	}
 }
 
@@ -360,7 +360,7 @@ phicheck(Phi *p, Blk *b, Ref t)
 	for (n=0; n<p->narg; n++)
 		if (req(p->arg[n], t)) {
 			b1 = p->blk[n];
-			if (b1 != b && !sdom(b, b1))
+			if (b1 != b && !qbe_sdom(b, b1))
 				return 1;
 		}
 	return 0;
@@ -368,7 +368,7 @@ phicheck(Phi *p, Blk *b, Ref t)
 
 /* require use and ssa */
 void
-ssacheck(Fn *fn)
+qbe_ssacheck(Fn *fn)
 {
 	Tmp *t;
 	Ins *i;
@@ -379,7 +379,7 @@ ssacheck(Fn *fn)
 
 	for (t=&fn->tmp[Tmp0]; t-fn->tmp < fn->ntmp; t++) {
 		if (t->ndef > 1)
-			err("ssa temporary %%%s defined more than once",
+			qbe_err("ssa temporary %%%s defined more than once",
 				t->name);
 		if (t->nuse > 0 && t->ndef == 0) {
 			bu = fn->rpo[t->use[0].bid];
@@ -396,7 +396,7 @@ ssacheck(Fn *fn)
 					if (phicheck(u->u.phi, b, r))
 						goto Err;
 				} else
-					if (bu != b && !sdom(b, bu))
+					if (bu != b && !qbe_sdom(b, bu))
 						goto Err;
 			}
 		}
@@ -416,7 +416,7 @@ ssacheck(Fn *fn)
 							if (u->u.ins <= i)
 								goto Err;
 					} else
-						if (!sdom(b, bu))
+						if (!qbe_sdom(b, bu))
 							goto Err;
 				}
 			}
@@ -427,6 +427,6 @@ Err:
 	if (t->visit)
 		die("%%%s violates ssa invariant", t->name);
 	else
-		err("ssa temporary %%%s is used undefined in @%s",
+		qbe_err("ssa temporary %%%s is used undefined in @%s",
 			t->name, bu->name);
 }
