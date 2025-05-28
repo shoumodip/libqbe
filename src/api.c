@@ -110,6 +110,25 @@ static void sb_type_value(Qbe *q, QbeValue value) {
     sb_value(q, value);
 }
 
+static void emit_str(Qbe *q, QbeStr str) {
+    sb_fmt(q, "data ");
+    sb_value(q, str.value);
+    sb_fmt(q, " = { b \"");
+
+    for (size_t i = 0; i < str.sv.count; i++) {
+        const char it = str.sv.data[i];
+        if (it == '"') {
+            sb_fmt(q, "\\\"");
+        } else if (isprint(it)) {
+            sb_fmt(q, "%c", it);
+        } else {
+            sb_fmt(q, "\\x%x", it);
+        }
+    }
+
+    sb_fmt(q, "\", b 0 }\n");
+}
+
 // API
 QbeSV qbe_sv_from_cstr(const char *cstr) {
     return (QbeSV) {.data = (cstr), .count = strlen(cstr)};
@@ -138,31 +157,27 @@ QbeValue qbe_value_import(QbeSV name, QbeType type) {
 void qbe_free(Qbe *q) {
     da_free(&q->sb);
     da_free(&q->types);
+    da_free(&q->local_strs);
 }
 
 QbeValue qbe_emit_str(Qbe *q, QbeSV sv) {
-    QbeValue str = {0};
-    str.kind = QBE_VALUE_GLOBAL;
-    str.type.kind = QBE_TYPE_PTR;
-    str.iota = q->global_iota++;
+    QbeValue value = {0};
+    value.kind = QBE_VALUE_GLOBAL;
+    value.type.kind = QBE_TYPE_PTR;
+    value.iota = q->global_iota++;
 
-    sb_fmt(q, "data ");
-    sb_value(q, str);
-    sb_fmt(q, " = { b \"");
+    const QbeStr str = {
+        .sv = sv,
+        .value = value,
+    };
 
-    for (size_t i = 0; i < sv.count; i++) {
-        const char it = sv.data[i];
-        if (it == '"') {
-            sb_fmt(q, "\\\"");
-        } else if (isprint(it)) {
-            sb_fmt(q, "%c", it);
-        } else {
-            sb_fmt(q, "\\x%x", it);
-        }
+    if (q->local) {
+        da_push(&q->local_strs, str);
+        return value;
     }
 
-    sb_fmt(q, "\", b 0 }\n");
-    return str;
+    emit_str(q, str);
+    return value;
 }
 
 QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_types, size_t arity) {
@@ -201,6 +216,7 @@ QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_typ
 
     sb_fmt(q, ") {\n@start\n");
 
+    q->local = true;
     return func;
 }
 
@@ -430,4 +446,9 @@ void qbe_emit_return(Qbe *q, QbeValue *value) {
 
 void qbe_emit_func_end(Qbe *q) {
     sb_fmt(q, "}\n");
+    q->local = false;
+
+    for (size_t i = 0; i < q->local_strs.count; i++) {
+        emit_str(q, q->local_strs.data[i]);
+    }
 }

@@ -5,9 +5,6 @@
 int main(void) {
     Qbe qbe = {0};
 
-    QbeValue first = qbe_emit_str(&qbe, qbe_sv_from_cstr("First"));
-    QbeValue second = qbe_emit_str(&qbe, qbe_sv_from_cstr("Second"));
-
     qbe_emit_func(&qbe, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32), NULL, 0);
 
     QbeValue func = qbe_value_import(qbe_sv_from_cstr("puts"), qbe_type_basic(QBE_TYPE_PTR));
@@ -21,17 +18,19 @@ int main(void) {
         QBE_BINARY_SGE,
         qbe_type_basic(QBE_TYPE_I32),
         qbe_value_int(QBE_TYPE_I64, 2),
-        qbe_value_int(QBE_TYPE_I64, 3));
+        qbe_value_int(QBE_TYPE_I64, 2));
 
     qbe_emit_branch(&qbe, cond, then_block, else_block);
 
     // Then
     qbe_emit_block(&qbe, then_block);
+    QbeValue first = qbe_emit_str(&qbe, qbe_sv_from_cstr("First"));
     qbe_emit_call(&qbe, func, qbe_type_basic(QBE_TYPE_I32), &first, 1);
     qbe_emit_jump(&qbe, merge_block);
 
     // Else
     qbe_emit_block(&qbe, else_block);
+    QbeValue second = qbe_emit_str(&qbe, qbe_sv_from_cstr("Second"));
     qbe_emit_call(&qbe, func, qbe_type_basic(QBE_TYPE_I32), &second, 1);
     qbe_emit_jump(&qbe, merge_block);
 

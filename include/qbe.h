@@ -77,12 +77,26 @@ typedef struct {
 } QbeSB;
 
 typedef struct {
+    QbeValue value;
+    QbeSV    sv;
+} QbeStr;
+
+typedef struct {
+    QbeStr *data;
+    size_t  count;
+    size_t  capacity;
+} QbeStrs;
+
+typedef struct {
     QbeSB    sb;
     QbeTypes types;
 
     size_t block_iota;
     size_t local_iota;
     size_t global_iota;
+
+    bool    local;
+    QbeStrs local_strs; // Defer string literal creation in local scope
 } Qbe;
 
 void qbe_free(Qbe *q);
