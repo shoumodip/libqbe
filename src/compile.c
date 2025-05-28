@@ -1,7 +1,9 @@
-#include "qbe.h"
-#include "all.h"
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include <getopt.h>
+#include "all.h"
+#include "da.h"
+#include "qbe.h"
 
 Target qbe_T;
 
@@ -24,14 +26,14 @@ extern Target qbe_T_arm64;
 extern Target qbe_T_arm64_apple;
 extern Target qbe_T_rv64;
 
-static FILE *outf;
+static FILE *qbe_output;
 static int   dbg;
 
 static void data(Dat *d) {
     if (dbg) return;
-    qbe_emitdat(d, outf);
+    qbe_emitdat(d, qbe_output);
     if (d->type == DEnd) {
-        fputs("/* end data */\n\n", outf);
+        fputs("/* end data */\n\n", qbe_output);
         qbe_freeall();
     }
 }
@@ -85,17 +87,44 @@ static void func(Fn *fn) {
             break;
         } else fn->rpo[n]->link = fn->rpo[n + 1];
     if (!dbg) {
-        qbe_T.emitfn(fn, outf);
-        fprintf(outf, "/* end function %s */\n\n", fn->name);
+        qbe_T.emitfn(fn, qbe_output);
+        fprintf(qbe_output, "/* end function %s */\n\n", fn->name);
     } else fprintf(stderr, "\n");
     qbe_freeall();
 }
 
 static void dbgfile(char *fn) {
-    qbe_emitdbgfile(fn, outf);
+    qbe_emitdbgfile(fn, qbe_output);
 }
 
-void qbe_compile(QbeTarget target, FILE *input, FILE *output) {
+typedef struct {
+    const char **data;
+    size_t       count;
+    size_t       capacity;
+} Cmd;
+
+int qbe_compile(
+    const Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
+    // Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
+
+    // Permission is hereby granted, free of charge, to any person obtaining a copy of
+    // this software and associated documentation files (the "Software"), to deal in
+    // the Software without restriction, including without limitation the rights to
+    // use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+    // of the Software, and to permit persons to whom the Software is furnished to do
+    // so, subject to the following conditions:
+
+    // The above copyright notice and this permission notice shall be included in all
+    // copies or substantial portions of the Software.
+
+    // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    // SOFTWARE.
+
     if (target == QBE_TARGET_DEFAULT) {
 #if defined(__APPLE__) && defined(__x86_64__)
         target = QBE_TARGET_X86_64_APPLE;
@@ -138,7 +167,64 @@ void qbe_compile(QbeTarget target, FILE *input, FILE *output) {
         break;
     }
 
-    outf = output;
-    qbe_parse(input, "<libqbe>", dbgfile, data, func);
-    if (!dbg) qbe_T.emitfin(outf);
+    int pipefd[2];
+    if (pipe(pipefd) < 0) {
+        return 1;
+    }
+
+    const pid_t pid = fork();
+    if (pid < 0) {
+        return 1;
+    }
+
+    if (pid == 0) {
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+
+        Cmd cmd = {0};
+        da_push(&cmd, "cc");
+        da_push(&cmd, "-o");
+        da_push(&cmd, output);
+        da_push(&cmd, "-x");
+        da_push(&cmd, "assembler");
+        da_push(&cmd, "-");
+        for (size_t i = 0; i < flags_count; i++) {
+            da_push(&cmd, flags[i]);
+        }
+        da_push(&cmd, NULL);
+
+        execvp(*cmd.data, (char *const *) cmd.data);
+        exit(127);
+    }
+
+    qbe_output = fdopen(pipefd[1], "w");
+    if (!qbe_output) {
+        return 1;
+    }
+    close(pipefd[0]);
+
+    FILE *qbe_input = fmemopen(q->sb.data, q->sb.count, "r");
+    if (!qbe_input) {
+        return 1;
+    }
+
+    qbe_parse(qbe_input, "<libqbe>", dbgfile, data, func);
+    if (!dbg) {
+        qbe_T.emitfin(qbe_output);
+    }
+
+    fclose(qbe_input);
+    fclose(qbe_output);
+
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0) {
+        return 1;
+    }
+
+    if (WIFSIGNALED(status)) {
+        return 128 + WTERMSIG(status);
+    }
+
+    return WEXITSTATUS(status);
 }
