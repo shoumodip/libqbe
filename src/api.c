@@ -110,9 +110,6 @@ static void sb_type_value(Qbe *q, QbeValue value) {
     sb_value(q, value);
 }
 
-static size_t local_iota;
-static size_t global_iota;
-
 // API
 QbeSV qbe_sv_from_cstr(const char *cstr) {
     return (QbeSV) {.data = (cstr), .count = strlen(cstr)};
@@ -147,7 +144,7 @@ QbeValue qbe_emit_str(Qbe *q, QbeSV sv) {
     QbeValue str = {0};
     str.kind = QBE_VALUE_GLOBAL;
     str.type.kind = QBE_TYPE_PTR;
-    str.iota = global_iota++;
+    str.iota = q->global_iota++;
 
     sb_fmt(q, "data ");
     sb_value(q, str);
@@ -176,7 +173,7 @@ QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_typ
 
     bool export = true;
     if (!name.count) {
-        func.iota = global_iota++;
+        func.iota = q->global_iota++;
         export = false;
     }
 
@@ -213,7 +210,7 @@ QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *arg
     call.type = return_type;
 
     if (return_type.kind != QBE_TYPE_I0) {
-        call.iota = local_iota++;
+        call.iota = q->local_iota++;
 
         sb_value(q, call);
         sb_fmt(q, " =");
@@ -242,7 +239,7 @@ QbeValue qbe_emit_unary(Qbe *q, QbeUnary op, QbeType type, QbeValue operand) {
     QbeValue unary = {0};
     unary.kind = QBE_VALUE_LOCAL;
     unary.type = type;
-    unary.iota = local_iota++;
+    unary.iota = q->local_iota++;
 
     sb_value(q, unary);
     sb_fmt(q, " =");
@@ -281,7 +278,7 @@ QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeVa
     QbeValue binary = {0};
     binary.kind = QBE_VALUE_LOCAL;
     binary.type = type;
-    binary.iota = local_iota++;
+    binary.iota = q->local_iota++;
 
     sb_value(q, binary);
     sb_fmt(q, " =");
@@ -401,6 +398,24 @@ QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeVa
     sb_value(q, rhs);
     sb_fmt(q, "\n");
     return binary;
+}
+
+QbeBlock qbe_new_block(Qbe *q) {
+    return (QbeBlock) {.iota = q->block_iota++};
+}
+
+void qbe_emit_block(Qbe *q, QbeBlock block) {
+    sb_fmt(q, "@.%zu\n", block.iota);
+}
+
+void qbe_emit_jump(Qbe *q, QbeBlock block) {
+    sb_fmt(q, "jmp @.%zu\n", block.iota);
+}
+
+void qbe_emit_branch(Qbe *q, QbeValue cond, QbeBlock then_block, QbeBlock else_block) {
+    sb_fmt(q, "jnz ");
+    sb_value(q, cond);
+    sb_fmt(q, ", @.%zu, @.%zu\n", then_block.iota, else_block.iota);
 }
 
 void qbe_emit_return(Qbe *q, QbeValue *value) {

@@ -79,6 +79,10 @@ typedef struct {
 typedef struct {
     QbeSB    sb;
     QbeTypes types;
+
+    size_t block_iota;
+    size_t local_iota;
+    size_t global_iota;
 } Qbe;
 
 void qbe_free(Qbe *q);
@@ -127,6 +131,16 @@ typedef enum {
 } QbeBinary;
 
 QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeValue rhs);
+
+typedef struct {
+    size_t iota;
+} QbeBlock;
+
+QbeBlock qbe_new_block(Qbe *q);
+
+void qbe_emit_block(Qbe *q, QbeBlock block);
+void qbe_emit_jump(Qbe *q, QbeBlock block);
+void qbe_emit_branch(Qbe *q, QbeValue cond, QbeBlock then_block, QbeBlock else_block);
 
 void qbe_emit_return(Qbe *q, QbeValue *value);
 void qbe_emit_func_end(Qbe *q);
