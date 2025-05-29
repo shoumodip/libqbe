@@ -47,6 +47,13 @@ typedef struct {
 
 QbeType qbe_type_basic(QbeTypeKind kind);
 
+typedef struct {
+    size_t align;
+    size_t size;
+} QbeTypeInfo;
+
+QbeTypeInfo qbe_type_info(QbeType type);
+
 typedef enum {
     QBE_VALUE_INT,
     QBE_VALUE_LOCAL,
@@ -104,7 +111,12 @@ typedef struct {
 void qbe_free(Qbe *q);
 
 QbeValue qbe_emit_str(Qbe *q, QbeSV sv);
+QbeValue qbe_emit_var(Qbe *q, QbeSV name, QbeType type);
 QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_types, size_t arity);
+
+QbeValue qbe_emit_load(Qbe *q, QbeValue ptr, QbeType type);
+void     qbe_emit_store(Qbe *q, QbeValue ptr, QbeValue value);
+
 QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *args, size_t arity);
 
 typedef enum {
