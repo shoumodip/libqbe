@@ -33,6 +33,8 @@ QbeSV qbe_sv_from_cstr(const char *cstr);
 
 typedef enum {
     QBE_TYPE_I0,
+    QBE_TYPE_I8,
+    QBE_TYPE_I16,
     QBE_TYPE_I32,
     QBE_TYPE_I64,
     QBE_TYPE_PTR,

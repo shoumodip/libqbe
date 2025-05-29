@@ -51,9 +51,17 @@ static void local_assert(Qbe *q, bool local, const char *label) {
     }
 }
 
-static_assert(QBE_COUNT_TYPES == 4, "");
+static_assert(QBE_COUNT_TYPES == 6, "");
 static void sb_type(Qbe *q, QbeType type) {
     switch (type.kind) {
+    case QBE_TYPE_I8:
+        sb_fmt(q, "b");
+        break;
+
+    case QBE_TYPE_I16:
+        sb_fmt(q, "h");
+        break;
+
     case QBE_TYPE_I32:
         sb_fmt(q, "w");
         break;
@@ -68,8 +76,11 @@ static void sb_type(Qbe *q, QbeType type) {
     }
 }
 
+static_assert(QBE_COUNT_TYPES == 6, "");
 static void sb_type_ssa(Qbe *q, QbeType type) {
     switch (type.kind) {
+    case QBE_TYPE_I8:
+    case QBE_TYPE_I16:
     case QBE_TYPE_I32:
         sb_fmt(q, "w");
         break;
