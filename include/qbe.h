@@ -38,21 +38,16 @@ typedef enum {
     QBE_TYPE_I32,
     QBE_TYPE_I64,
     QBE_TYPE_PTR,
+    QBE_TYPE_STRUCT,
     QBE_COUNT_TYPES
 } QbeTypeKind;
 
 typedef struct {
     QbeTypeKind kind;
+    size_t      data;
 } QbeType;
 
 QbeType qbe_type_basic(QbeTypeKind kind);
-
-typedef struct {
-    size_t align;
-    size_t size;
-} QbeTypeInfo;
-
-QbeTypeInfo qbe_type_info(QbeType type);
 
 typedef enum {
     QBE_VALUE_INT,
@@ -74,12 +69,6 @@ QbeValue qbe_value_int(QbeTypeKind kind, size_t n);
 QbeValue qbe_value_import(QbeSV name, QbeType type);
 
 typedef struct {
-    QbeType *data;
-    size_t   count;
-    size_t   capacity;
-} QbeTypes;
-
-typedef struct {
     char  *data;
     size_t count;
     size_t capacity;
@@ -97,8 +86,40 @@ typedef struct {
 } QbeStrs;
 
 typedef struct {
-    QbeSB    sb;
-    QbeTypes types;
+    size_t align;
+    size_t size;
+} QbeTypeInfo;
+
+typedef struct {
+    QbeType type;
+    size_t  offset;
+
+    QbeTypeInfo info;
+} QbeField;
+
+typedef struct {
+    QbeField *data;
+    size_t    count;
+    size_t    capacity;
+} QbeFields;
+
+typedef struct {
+    size_t fields;
+    size_t count;
+
+    QbeTypeInfo info;
+} QbeStruct;
+
+typedef struct {
+    QbeStruct *data;
+    size_t     count;
+    size_t     capacity;
+} QbeStructs;
+
+typedef struct {
+    QbeSB      sb;
+    QbeFields  fields;
+    QbeStructs structs;
 
     size_t block_iota;
     size_t local_iota;
@@ -109,6 +130,9 @@ typedef struct {
 } Qbe;
 
 void qbe_free(Qbe *q);
+
+QbeTypeInfo qbe_type_info(Qbe *q, QbeType type);
+QbeType     qbe_type_struct(Qbe *q, QbeType *fields, size_t count);
 
 QbeValue qbe_emit_str(Qbe *q, QbeSV sv);
 QbeValue qbe_emit_var(Qbe *q, QbeSV name, QbeType type);
@@ -171,6 +195,7 @@ void qbe_emit_jump(Qbe *q, QbeBlock block);
 void qbe_emit_branch(Qbe *q, QbeValue cond, QbeBlock then_block, QbeBlock else_block);
 
 void qbe_emit_return(Qbe *q, QbeValue *value);
+void qbe_emit_structs(Qbe *q);
 void qbe_emit_func_end(Qbe *q);
 
 typedef enum {
@@ -183,6 +208,6 @@ typedef enum {
 } QbeTarget;
 
 int qbe_compile(
-    const Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count);
+    Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count);
 
 #endif // QBE_H

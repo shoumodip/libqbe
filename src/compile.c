@@ -104,7 +104,7 @@ typedef struct {
 } Cmd;
 
 int qbe_compile(
-    const Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
+    Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
     // Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
 
     // Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -165,6 +165,16 @@ int qbe_compile(
     default:
         assert(0 && "unreachable");
         break;
+    }
+
+    {
+        QbeSB program = q->sb;
+
+        q->sb = (QbeSB) {0};
+        qbe_emit_structs(q);
+        da_push_many(&q->sb, program.data, program.count);
+
+        da_free(&program);
     }
 
     int pipefd[2];

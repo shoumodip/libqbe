@@ -58,7 +58,7 @@ static void assert_not_i0(QbeType type, const char *action) {
     }
 }
 
-static_assert(QBE_COUNT_TYPES == 6, "");
+static_assert(QBE_COUNT_TYPES == 7, "");
 static void sb_type(Qbe *q, QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -78,12 +78,16 @@ static void sb_type(Qbe *q, QbeType type) {
         sb_fmt(q, "l");
         break;
 
+    case QBE_TYPE_STRUCT:
+        sb_fmt(q, ":.%zu", type.data);
+        break;
+
     default:
         assert(false && "unreachable");
     }
 }
 
-static_assert(QBE_COUNT_TYPES == 6, "");
+static_assert(QBE_COUNT_TYPES == 7, "");
 static void sb_type_ssa(Qbe *q, QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -95,6 +99,10 @@ static void sb_type_ssa(Qbe *q, QbeType type) {
     case QBE_TYPE_I64:
     case QBE_TYPE_PTR:
         sb_fmt(q, "l");
+        break;
+
+    case QBE_TYPE_STRUCT:
+        sb_fmt(q, ":.%zu", type.data);
         break;
 
     default:
@@ -163,27 +171,6 @@ QbeType qbe_type_basic(QbeTypeKind kind) {
     return (QbeType) {.kind = kind};
 }
 
-static_assert(QBE_COUNT_TYPES == 6, "");
-QbeTypeInfo qbe_type_info(QbeType type) {
-    switch (type.kind) {
-    case QBE_TYPE_I8:
-        return (QbeTypeInfo) {.size = 1, .align = 1};
-
-    case QBE_TYPE_I16:
-        return (QbeTypeInfo) {.size = 2, .align = 2};
-
-    case QBE_TYPE_I32:
-        return (QbeTypeInfo) {.size = 4, .align = 4};
-
-    case QBE_TYPE_I64:
-    case QBE_TYPE_PTR:
-        return (QbeTypeInfo) {.size = 8, .align = 8};
-
-    default:
-        assert(false && "unreachable");
-    }
-}
-
 QbeValue qbe_value_int(QbeTypeKind kind, size_t n) {
     QbeValue value = {0};
     value.kind = QBE_VALUE_INT;
@@ -202,8 +189,74 @@ QbeValue qbe_value_import(QbeSV name, QbeType type) {
 
 void qbe_free(Qbe *q) {
     da_free(&q->sb);
-    da_free(&q->types);
+    da_free(&q->fields);
+    da_free(&q->structs);
     da_free(&q->local_strs);
+}
+
+static_assert(QBE_COUNT_TYPES == 7, "");
+QbeTypeInfo qbe_type_info(Qbe *q, QbeType type) {
+    switch (type.kind) {
+    case QBE_TYPE_I8:
+        return (QbeTypeInfo) {.size = 1, .align = 1};
+
+    case QBE_TYPE_I16:
+        return (QbeTypeInfo) {.size = 2, .align = 2};
+
+    case QBE_TYPE_I32:
+        return (QbeTypeInfo) {.size = 4, .align = 4};
+
+    case QBE_TYPE_I64:
+    case QBE_TYPE_PTR:
+        return (QbeTypeInfo) {.size = 8, .align = 8};
+
+    case QBE_TYPE_STRUCT:
+        assert(type.data < q->structs.count);
+        return q->structs.data[type.data].info;
+
+    default:
+        assert(false && "unreachable");
+    }
+}
+
+// TODO: Intern the structs
+QbeType qbe_type_struct(Qbe *q, QbeType *fields, size_t count) {
+    QbeStruct st = {0};
+    st.fields = q->fields.count;
+    st.count = count;
+    da_grow(&q->fields, count);
+
+    st.info.size = 0;
+    st.info.align = 1;
+
+    QbeField *fs = &q->fields.data[st.fields];
+    for (size_t i = 0; i < count; ++i) {
+        QbeField *it = &fs[i];
+        it->type = fields[i];
+        it->info = qbe_type_info(q, it->type);
+
+        QbeTypeInfo info = it->info;
+        if (info.align > st.info.align) {
+            st.info.align = info.align;
+        }
+    }
+
+    size_t offset = 0;
+    for (size_t i = 0; i < count; ++i) {
+        QbeField   *it = &fs[i];
+        QbeTypeInfo info = it->info;
+
+        offset += (info.align - (offset % info.align)) % info.align;
+        it->offset = offset;
+        offset += info.size;
+    }
+
+    offset += (st.info.align - (offset % st.info.align)) % st.info.align;
+    st.info.size = offset;
+
+    QbeType type = {.kind = QBE_TYPE_STRUCT, .data = q->structs.count};
+    da_push(&q->structs, st);
+    return type;
 }
 
 QbeValue qbe_emit_str(Qbe *q, QbeSV sv) {
@@ -247,7 +300,7 @@ QbeValue qbe_emit_var(Qbe *q, QbeSV name, QbeType type) {
     sb_fmt(q, "data ");
     sb_value(q, var);
 
-    QbeTypeInfo info = qbe_type_info(type);
+    QbeTypeInfo info = qbe_type_info(q, type);
     sb_fmt(q, " = align %zu { z %zu }\n", info.align, info.size);
     return var;
 }
@@ -298,6 +351,11 @@ QbeValue qbe_emit_load(Qbe *q, QbeValue ptr, QbeType type) {
     assert_local(q, true, "load");
     assert_not_i0(type, "load");
 
+    if (type.kind == QBE_TYPE_STRUCT) {
+        ptr.type = type;
+        return ptr;
+    }
+
     QbeValue load = {0};
     load.kind = QBE_VALUE_LOCAL;
     load.type = type;
@@ -318,8 +376,18 @@ QbeValue qbe_emit_load(Qbe *q, QbeValue ptr, QbeType type) {
 
 void qbe_emit_store(Qbe *q, QbeValue ptr, QbeValue value) {
     assert_local(q, true, "store");
-
     assert_not_i0(value.type, "store");
+
+    if (value.type.kind == QBE_TYPE_STRUCT) {
+        sb_fmt(q, "blit ");
+        sb_value(q, value);
+        sb_fmt(q, ", ");
+        sb_value(q, ptr);
+
+        QbeTypeInfo info = qbe_type_info(q, value.type);
+        sb_fmt(q, ", %zu\n", info.size);
+        return;
+    }
 
     sb_fmt(q, "store");
     sb_type(q, value.type);
@@ -565,6 +633,22 @@ void qbe_emit_return(Qbe *q, QbeValue *value) {
     }
 
     sb_fmt(q, "\n");
+}
+
+void qbe_emit_structs(Qbe *q) {
+    for (size_t i = 0; i < q->structs.count; i++) {
+        QbeStruct it = q->structs.data[i];
+        QbeField *fs = &q->fields.data[it.fields];
+
+        sb_fmt(q, "type :.%zu = { ", i);
+        for (size_t j = 0; j < it.count; j++) {
+            if (j) {
+                sb_fmt(q, ", ");
+            }
+            sb_type(q, fs[j].type);
+        }
+        sb_fmt(q, " }\n");
+    }
 }
 
 void qbe_emit_func_end(Qbe *q) {
