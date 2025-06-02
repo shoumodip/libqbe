@@ -1,54 +1,163 @@
-#include "../include/qbe.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "qbe.h"
 
 #define len(a) (sizeof(a) / sizeof(*(a)))
 
-int main(void) {
-    Qbe qbe = {0};
+static void debug_program(Qbe *q) {
+    if (0) {
+        QbeSV program = qbe_get_compiled_program(q);
+        fwrite(program.data, program.count, 1, stdout);
+    }
+}
 
-    QbeValue i = qbe_emit_var(&qbe, qbe_sv_from_cstr(""), qbe_type_basic(QBE_TYPE_I64));
+static void example_if(void) {
+    Qbe *q = qbe_new();
 
-    qbe_emit_func(&qbe, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32), NULL, 0);
+    {
+        QbeFn   *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+        QbeNode *puts = qbe_atom_symbol(q, qbe_sv_from_cstr("puts"), qbe_type_basic(QBE_TYPE_PTR));
 
-    QbeBlock cond_block = qbe_new_block(&qbe);
-    QbeBlock body_block = qbe_new_block(&qbe);
-    QbeBlock break_block = qbe_new_block(&qbe);
+        QbeBlock *then_block = qbe_block_new(q);
+        QbeBlock *else_block = qbe_block_new(q);
+        QbeBlock *merge_block = qbe_block_new(q);
 
-    // Condition
-    qbe_emit_block(&qbe, cond_block);
+        // Condition
+        QbeNode *cond = qbe_build_binary(
+            q,
+            main,
+            QBE_BINARY_SLT,
+            qbe_type_basic(QBE_TYPE_I32),
+            qbe_atom_int(q, QBE_TYPE_I64, 1),
+            qbe_atom_int(q, QBE_TYPE_I64, 2));
 
-    QbeValue cond = qbe_emit_binary(
-        &qbe,
-        QBE_BINARY_SLT,
-        qbe_type_basic(QBE_TYPE_I32),
-        qbe_emit_load(&qbe, i, qbe_type_basic(QBE_TYPE_I64)),
-        qbe_value_int(QBE_TYPE_I64, 10));
+        qbe_build_branch(q, main, cond, then_block, else_block);
 
-    qbe_emit_branch(&qbe, cond, body_block, break_block);
+        // Then
+        qbe_build_block(q, main, then_block);
+        QbeCall *first = qbe_build_call(q, main, puts, qbe_type_basic(QBE_TYPE_I32));
+        qbe_call_add_arg(q, first, qbe_str_new(q, qbe_sv_from_cstr("First")));
+        qbe_build_jump(q, main, merge_block);
 
-    // Body
-    qbe_emit_block(&qbe, body_block);
+        // Else
+        qbe_build_block(q, main, else_block);
+        QbeCall *second = qbe_build_call(q, main, puts, qbe_type_basic(QBE_TYPE_I32));
+        qbe_call_add_arg(q, second, qbe_str_new(q, qbe_sv_from_cstr("Second")));
+        qbe_build_jump(q, main, merge_block);
 
-    QbeValue args[] = {
-        qbe_emit_str(&qbe, qbe_sv_from_cstr("%ld\n")),
-        qbe_emit_load(&qbe, i, qbe_type_basic(QBE_TYPE_I64)),
+        // Merge
+        qbe_build_block(q, main, merge_block);
+        qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
+    }
+
+    // Compile
+    qbe_compile(q);
+    debug_program(q);
+    int result = qbe_generate(q, QBE_TARGET_DEFAULT, "hello", NULL, 0);
+    qbe_free(q);
+    exit(result);
+}
+
+static void example_while(void) {
+    Qbe *q = qbe_new();
+
+    {
+        QbeFn   *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
+
+        QbeBlock *cond_block = qbe_block_new(q);
+        QbeBlock *body_block = qbe_block_new(q);
+        QbeBlock *over_block = qbe_block_new(q);
+
+        // Condition
+        qbe_build_block(q, main, cond_block);
+
+        QbeNode *cond = qbe_build_binary(
+            q,
+            main,
+            QBE_BINARY_SLT,
+            qbe_type_basic(QBE_TYPE_I32),
+            qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+            qbe_atom_int(q, QBE_TYPE_I64, 10));
+
+        qbe_build_branch(q, main, cond, body_block, over_block);
+
+        // Body
+        qbe_build_block(q, main, body_block);
+
+        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_PTR));
+        QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
+        qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
+        qbe_call_add_arg(q, call, qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)));
+
+        qbe_build_store(
+            q,
+            main,
+            i,
+            qbe_build_binary(
+                q,
+                main,
+                QBE_BINARY_ADD,
+                qbe_type_basic(QBE_TYPE_I64),
+                qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                qbe_atom_int(q, QBE_TYPE_I64, 1)));
+
+        // Loop
+        qbe_build_jump(q, main, cond_block);
+
+        // Over
+        qbe_build_block(q, main, over_block);
+        qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
+    }
+
+    // Compile
+    qbe_compile(q);
+    debug_program(q);
+    int result = qbe_generate(q, QBE_TARGET_DEFAULT, "hello", NULL, 0);
+    qbe_free(q);
+    exit(result);
+}
+
+static void example_struct(void) {
+    Qbe *q = qbe_new();
+
+    {
+        QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+
+        QbeStruct *Vec3 = qbe_struct_new(q);
+        qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
+        qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
+        qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
+
+        QbeNode *v = qbe_var_new(q, (QbeSV) {0}, qbe_type_struct(Vec3));
+        QbeNode *newVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("newVec3"), qbe_type_basic(QBE_TYPE_PTR));
+        QbeNode *printVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("printVec3"), qbe_type_basic(QBE_TYPE_PTR));
+
+        QbeCall *newVec3_call = qbe_build_call(q, main, newVec3, qbe_type_struct(Vec3));
+        qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 69));
+        qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 420));
+        qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 1337));
+        qbe_build_store(q, main, v, (QbeNode *) newVec3_call);
+
+        QbeCall *printVec3_call = qbe_build_call(q, main, printVec3, qbe_type_basic(QBE_TYPE_I0));
+        qbe_call_add_arg(q, printVec3_call, qbe_build_load(q, main, v, qbe_type_struct(Vec3)));
+
+        qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
+    }
+
+    // Compile
+    qbe_compile(q);
+    debug_program(q);
+    const char *flags[] = {
+        "-L.",
+        "-lvec3",
     };
+    const int result = qbe_generate(q, QBE_TARGET_DEFAULT, "hello", flags, len(flags));
+    qbe_free(q);
+    exit(result);
+}
 
-    QbeValue log = qbe_value_import(qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_PTR));
-    qbe_emit_call(&qbe, log, qbe_type_basic(QBE_TYPE_I32), args, len(args));
-
-    QbeValue i1 = qbe_emit_load(&qbe, i, qbe_type_basic(QBE_TYPE_I64));
-    QbeValue i2 = qbe_emit_binary(
-        &qbe, QBE_BINARY_ADD, qbe_type_basic(QBE_TYPE_I64), i1, qbe_value_int(QBE_TYPE_I64, 1));
-
-    qbe_emit_store(&qbe, i, i2);
-    qbe_emit_jump(&qbe, cond_block);
-
-    // Break
-    qbe_emit_block(&qbe, break_block);
-
-    QbeValue zero = qbe_value_int(QBE_TYPE_I32, 0);
-    qbe_emit_return(&qbe, &zero);
-    qbe_emit_func_end(&qbe);
-
-    return qbe_compile(&qbe, QBE_TARGET_DEFAULT, "hello", NULL, 0);
+int main(void) {
+    example_struct();
 }

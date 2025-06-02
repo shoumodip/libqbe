@@ -2,7 +2,6 @@
 #include <unistd.h>
 
 #include "all.h"
-#include "da.h"
 #include "qbe.h"
 
 Target qbe_T;
@@ -97,34 +96,43 @@ static void dbgfile(char *fn) {
     qbe_emitdbgfile(fn, qbe_output);
 }
 
+// Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 typedef struct {
     const char **data;
     size_t       count;
     size_t       capacity;
 } Cmd;
 
-int qbe_compile(
-    Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
-    // Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
+void cmd_push(Cmd *c, const char *arg) {
+    if (c->count >= c->capacity) {
+        c->capacity = c->capacity ? c->capacity * 2 : 128;
+        c->data = realloc(c->data, c->capacity * sizeof(*c->data));
+        assert(c->data);
+    }
 
-    // Permission is hereby granted, free of charge, to any person obtaining a copy of
-    // this software and associated documentation files (the "Software"), to deal in
-    // the Software without restriction, including without limitation the rights to
-    // use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-    // of the Software, and to permit persons to whom the Software is furnished to do
-    // so, subject to the following conditions:
+    c->data[c->count++] = arg;
+}
 
-    // The above copyright notice and this permission notice shall be included in all
-    // copies or substantial portions of the Software.
-
-    // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    // SOFTWARE.
-
+int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
     if (target == QBE_TARGET_DEFAULT) {
 #if defined(__APPLE__) && defined(__x86_64__)
         target = QBE_TARGET_X86_64_APPLE;
@@ -167,16 +175,6 @@ int qbe_compile(
         break;
     }
 
-    {
-        QbeSB program = q->sb;
-
-        q->sb = (QbeSB) {0};
-        qbe_emit_structs(q);
-        da_push_many(&q->sb, program.data, program.count);
-
-        da_free(&program);
-    }
-
     int pipefd[2];
     if (pipe(pipefd) < 0) {
         return 1;
@@ -193,16 +191,16 @@ int qbe_compile(
         close(pipefd[0]);
 
         Cmd cmd = {0};
-        da_push(&cmd, "cc");
-        da_push(&cmd, "-o");
-        da_push(&cmd, output);
-        da_push(&cmd, "-x");
-        da_push(&cmd, "assembler");
-        da_push(&cmd, "-");
+        cmd_push(&cmd, "cc");
+        cmd_push(&cmd, "-o");
+        cmd_push(&cmd, output);
+        cmd_push(&cmd, "-x");
+        cmd_push(&cmd, "assembler");
+        cmd_push(&cmd, "-");
         for (size_t i = 0; i < flags_count; i++) {
-            da_push(&cmd, flags[i]);
+            cmd_push(&cmd, flags[i]);
         }
-        da_push(&cmd, NULL);
+        cmd_push(&cmd, NULL);
 
         execvp(*cmd.data, (char *const *) cmd.data);
         exit(127);
@@ -214,7 +212,8 @@ int qbe_compile(
     }
     close(pipefd[0]);
 
-    FILE *qbe_input = fmemopen(q->sb.data, q->sb.count, "r");
+    QbeSV program = qbe_get_compiled_program(q);
+    FILE *qbe_input = fmemopen((void *) program.data, program.count, "r");
     if (!qbe_input) {
         return 1;
     }

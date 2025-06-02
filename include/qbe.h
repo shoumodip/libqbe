@@ -21,7 +21,6 @@
 #ifndef QBE_H
 #define QBE_H
 
-#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct {
@@ -29,7 +28,16 @@ typedef struct {
     size_t      count;
 } QbeSV;
 
-QbeSV qbe_sv_from_cstr(const char *cstr);
+#define QbeSVFmt    "%.*s"
+#define QbeSVArg(s) (int) ((s).count), ((s).data)
+
+typedef struct Qbe     Qbe;
+typedef struct QbeNode QbeNode;
+
+typedef struct QbeFn     QbeFn;
+typedef struct QbeCall   QbeCall;
+typedef struct QbeBlock  QbeBlock;
+typedef struct QbeStruct QbeStruct;
 
 typedef enum {
     QBE_TYPE_I0,
@@ -44,113 +52,15 @@ typedef enum {
 
 typedef struct {
     QbeTypeKind kind;
-    size_t      data;
+    QbeStruct  *spec;
 } QbeType;
-
-QbeType qbe_type_basic(QbeTypeKind kind);
-
-typedef enum {
-    QBE_VALUE_INT,
-    QBE_VALUE_LOCAL,
-    QBE_VALUE_GLOBAL,
-    QBE_COUNT_VALUES,
-} QbeValueKind;
-
-typedef struct {
-    QbeValueKind kind;
-
-    QbeSV  name;
-    size_t iota;
-
-    QbeType type;
-} QbeValue;
-
-QbeValue qbe_value_int(QbeTypeKind kind, size_t n);
-QbeValue qbe_value_import(QbeSV name, QbeType type);
-
-typedef struct {
-    char  *data;
-    size_t count;
-    size_t capacity;
-} QbeSB;
-
-typedef struct {
-    QbeValue value;
-    QbeSV    sv;
-} QbeStr;
-
-typedef struct {
-    QbeStr *data;
-    size_t  count;
-    size_t  capacity;
-} QbeStrs;
-
-typedef struct {
-    size_t align;
-    size_t size;
-} QbeTypeInfo;
-
-typedef struct {
-    QbeType type;
-    size_t  offset;
-
-    QbeTypeInfo info;
-} QbeField;
-
-typedef struct {
-    QbeField *data;
-    size_t    count;
-    size_t    capacity;
-} QbeFields;
-
-typedef struct {
-    size_t fields;
-    size_t count;
-
-    QbeTypeInfo info;
-} QbeStruct;
-
-typedef struct {
-    QbeStruct *data;
-    size_t     count;
-    size_t     capacity;
-} QbeStructs;
-
-typedef struct {
-    QbeSB      sb;
-    QbeFields  fields;
-    QbeStructs structs;
-
-    size_t block_iota;
-    size_t local_iota;
-    size_t global_iota;
-
-    bool    local;
-    QbeStrs local_strs; // Defer string literal creation in local scope
-} Qbe;
-
-void qbe_free(Qbe *q);
-
-QbeTypeInfo qbe_type_info(Qbe *q, QbeType type);
-QbeType     qbe_type_struct(Qbe *q, QbeType *fields, size_t count);
-
-QbeValue qbe_emit_str(Qbe *q, QbeSV sv);
-QbeValue qbe_emit_var(Qbe *q, QbeSV name, QbeType type);
-QbeValue qbe_emit_func(Qbe *q, QbeSV name, QbeType return_type, QbeType *arg_types, size_t arity);
-
-QbeValue qbe_emit_load(Qbe *q, QbeValue ptr, QbeType type);
-void     qbe_emit_store(Qbe *q, QbeValue ptr, QbeValue value);
-
-QbeValue qbe_emit_call(Qbe *q, QbeValue func, QbeType return_type, QbeValue *args, size_t arity);
 
 typedef enum {
     QBE_UNARY_NEG,
     QBE_UNARY_BNOT,
     QBE_UNARY_LNOT,
     QBE_COUNT_UNARYS
-} QbeUnary;
-
-QbeValue qbe_emit_unary(Qbe *q, QbeUnary op, QbeType type, QbeValue operand);
+} QbeUnaryOp;
 
 typedef enum {
     QBE_BINARY_ADD,
@@ -180,23 +90,7 @@ typedef enum {
     QBE_BINARY_NE,
 
     QBE_COUNT_BINARYS
-} QbeBinary;
-
-QbeValue qbe_emit_binary(Qbe *q, QbeBinary op, QbeType type, QbeValue lhs, QbeValue rhs);
-
-typedef struct {
-    size_t iota;
-} QbeBlock;
-
-QbeBlock qbe_new_block(Qbe *q);
-
-void qbe_emit_block(Qbe *q, QbeBlock block);
-void qbe_emit_jump(Qbe *q, QbeBlock block);
-void qbe_emit_branch(Qbe *q, QbeValue cond, QbeBlock then_block, QbeBlock else_block);
-
-void qbe_emit_return(Qbe *q, QbeValue *value);
-void qbe_emit_structs(Qbe *q);
-void qbe_emit_func_end(Qbe *q);
+} QbeBinaryOp;
 
 typedef enum {
     QBE_TARGET_DEFAULT,
@@ -207,7 +101,50 @@ typedef enum {
     QBE_TARGET_RV64
 } QbeTarget;
 
-int qbe_compile(
-    Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count);
+// String View
+QbeSV qbe_sv_from_cstr(const char *cstr);
+
+// Types
+QbeType qbe_type_basic(QbeTypeKind kind);
+QbeType qbe_type_struct(QbeStruct *spec);
+
+QbeType qbe_typeof(QbeNode *node);
+size_t  qbe_sizeof(QbeType type);
+
+// Atoms
+QbeNode *qbe_atom_int(Qbe *q, QbeTypeKind kind, size_t n);
+QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type);
+
+// Creators
+QbeFn     *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type);
+QbeNode   *qbe_var_new(Qbe *q, QbeSV name, QbeType type); // TODO: Local variables
+QbeNode   *qbe_str_new(Qbe *q, QbeSV sv);
+QbeBlock  *qbe_block_new(Qbe *q);
+QbeStruct *qbe_struct_new(Qbe *q);
+
+// Adders
+void     qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
+QbeNode *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type);
+QbeNode *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type);
+
+// Builder
+QbeCall *qbe_build_call(Qbe *q, QbeFn *fn, QbeNode *value, QbeType return_type);
+QbeNode *qbe_build_unary(Qbe *q, QbeFn *fn, QbeUnaryOp op, QbeType type, QbeNode *operand);
+QbeNode *qbe_build_binary(Qbe *q, QbeFn *fn, QbeBinaryOp op, QbeType type, QbeNode *lhs, QbeNode *rhs);
+QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type);
+
+void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value);
+void qbe_build_block(Qbe *q, QbeFn *fn, QbeBlock *block);
+void qbe_build_jump(Qbe *q, QbeFn *fn, QbeBlock *block);
+void qbe_build_branch(Qbe *q, QbeFn *fn, QbeNode *cond, QbeBlock *then_block, QbeBlock *else_block);
+void qbe_build_return(Qbe *q, QbeFn *fn, QbeNode *value);
+
+// Primitives
+Qbe *qbe_new(void);
+void qbe_free(Qbe *q);
+void qbe_compile(Qbe *q);
+int  qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count);
+
+QbeSV qbe_get_compiled_program(Qbe *q);
 
 #endif // QBE_H
