@@ -825,6 +825,14 @@ QbeNode *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type) {
     return (QbeNode *) arg;
 }
 
+QbeNode *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type) {
+    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_PTR));
+    var->type = var_type;
+    var->local = true;
+    qbe_nodes_push(&fn->vars, (QbeNode *) var);
+    return (QbeNode *) var;
+}
+
 QbeNode *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type) {
     st->info_ready = false;
     QbeNode *field = qbe_node_alloc(q, QBE_NODE_FIELD, field_type);
@@ -1000,6 +1008,22 @@ void qbe_compile(Qbe *q) {
         }
 
         qbe_sb_fmt(q, ") {\n@.%zu\n", q->blocks++);
+
+        for (QbeNode *var = fn->vars.head; var; var = var->next) {
+            var->iota = q->locals++;
+            qbe_compile_node(q, var);
+
+            qbe_sb_indent(q);
+            qbe_sb_node_ssa(q, var);
+
+            QbeTypeInfo info = qbe_type_info(((QbeVar *) var)->type);
+            if (info.align < 4) {
+                // Typical C compilers usually align stack variables by 4
+                info.align = 4;
+            }
+
+            qbe_sb_fmt(q, " =l alloc%zu %zu\n", info.align, info.size);
+        }
 
         for (QbeNode *stmt = fn->body.head; stmt; stmt = stmt->next) {
             qbe_compile_node(q, stmt);

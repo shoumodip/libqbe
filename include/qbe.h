@@ -117,7 +117,7 @@ QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type);
 
 // Creators
 QbeFn     *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type);
-QbeNode   *qbe_var_new(Qbe *q, QbeSV name, QbeType type); // TODO: Local variables
+QbeNode   *qbe_var_new(Qbe *q, QbeSV name, QbeType type);
 QbeNode   *qbe_str_new(Qbe *q, QbeSV sv);
 QbeBlock  *qbe_block_new(Qbe *q);
 QbeStruct *qbe_struct_new(Qbe *q);
@@ -125,6 +125,7 @@ QbeStruct *qbe_struct_new(Qbe *q);
 // Adders
 void     qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
 QbeNode *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type);
+QbeNode *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type);
 QbeNode *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type);
 
 // Builder

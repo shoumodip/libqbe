@@ -130,7 +130,7 @@ static void example_struct(void) {
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
 
-        QbeNode *v = qbe_var_new(q, (QbeSV) {0}, qbe_type_struct(Vec3));
+        QbeNode *v = qbe_fn_add_var(q, main, qbe_type_struct(Vec3));
         QbeNode *newVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("newVec3"), qbe_type_basic(QBE_TYPE_PTR));
         QbeNode *printVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("printVec3"), qbe_type_basic(QBE_TYPE_PTR));
 
