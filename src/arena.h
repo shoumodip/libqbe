@@ -71,6 +71,7 @@ ARENA_API void *arena_alloc(Arena *a, size_t size) {
         }
     }
 
+    size = (size + 7) & -8; // Alignment
     if (!region) {
         size_t capacity = size;
         if (capacity < ARENA_MINIMUM_CAPACITY) {
