@@ -21,7 +21,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,6 +44,7 @@ typedef enum {
 
     QBE_NODE_ARG,
     QBE_NODE_CALL,
+    QBE_NODE_CAST,
     QBE_NODE_LOAD,
     QBE_NODE_STORE,
 
@@ -102,6 +102,12 @@ struct QbeCall {
     QbeNode *fn;
     QbeNodes args;
 };
+
+typedef struct {
+    QbeNode  node;
+    QbeNode *value;
+    bool     is_signed;
+} QbeCast;
 
 typedef struct {
     QbeNode  node;
@@ -228,7 +234,7 @@ static void qbe_nodes_push(QbeNodes *ns, QbeNode *node) {
 }
 
 static QbeNode *qbe_node_alloc(Qbe *q, QbeNodeKind kind, QbeType type) {
-    static_assert(QBE_COUNT_NODES == 15, "");
+    static_assert(QBE_COUNT_NODES == 16, "");
     static const size_t sizes[QBE_COUNT_NODES] = {
         [QBE_NODE_ATOM] = sizeof(QbeNode),
         [QBE_NODE_UNARY] = sizeof(QbeUnary),
@@ -236,6 +242,7 @@ static QbeNode *qbe_node_alloc(Qbe *q, QbeNodeKind kind, QbeType type) {
 
         [QBE_NODE_ARG] = sizeof(QbeArg),
         [QBE_NODE_CALL] = sizeof(QbeCall),
+        [QBE_NODE_CAST] = sizeof(QbeCast),
         [QBE_NODE_LOAD] = sizeof(QbeLoad),
         [QBE_NODE_STORE] = sizeof(QbeStore),
 
@@ -383,7 +390,7 @@ static inline size_t qbe_block_iota(Qbe *q, QbeBlock *block) {
     return block->node.iota;
 }
 
-static_assert(QBE_COUNT_NODES == 15, "");
+static_assert(QBE_COUNT_NODES == 16, "");
 static void qbe_compile_node(Qbe *q, QbeNode *n) {
     if (!n || n->ssa) {
         return;
@@ -596,6 +603,24 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
             }
         }
         qbe_sb_fmt(q, ")\n");
+    } break;
+
+    case QBE_NODE_CAST: {
+        QbeCast *cast = (QbeCast *) n;
+        qbe_compile_node(q, cast->value);
+
+        n->ssa = QBE_SSA_LOCAL;
+        n->iota = q->locals++;
+
+        qbe_sb_indent(q);
+        qbe_sb_node_ssa(q, n);
+        qbe_sb_fmt(q, " =");
+        qbe_sb_type_ssa(q, n->type);
+        qbe_sb_fmt(q, " ext%c", cast->is_signed ? 's' : 'u');
+        qbe_sb_type(q, cast->value->type);
+        qbe_sb_fmt(q, " ");
+        qbe_sb_node_ssa(q, cast->value);
+        qbe_sb_fmt(q, "\n");
     } break;
 
     case QBE_NODE_LOAD: {
@@ -865,6 +890,33 @@ QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type) {
     QbeLoad *load = (QbeLoad *) qbe_node_build(q, fn, QBE_NODE_LOAD, type);
     load->src = ptr;
     return (QbeNode *) load;
+}
+
+QbeNode *qbe_build_cast(Qbe *q, QbeFn *fn, QbeNode *value, QbeTypeKind type_kind, bool is_signed) {
+    static const size_t sizes[QBE_COUNT_TYPES] = {
+        [QBE_TYPE_I8] = 8,
+        [QBE_TYPE_I16] = 16,
+        [QBE_TYPE_I32] = 32,
+        [QBE_TYPE_I64] = 64,
+        [QBE_TYPE_PTR] = 64,
+    };
+
+    size_t from_size = sizes[value->type.kind];
+    assert(from_size);
+
+    assert(type_kind >= 0 && type_kind < QBE_COUNT_TYPES);
+    size_t to_size = sizes[type_kind];
+    assert(to_size);
+
+    if (to_size <= from_size) {
+        // QBE does not need explicit integer truncation
+        return value;
+    }
+
+    QbeCast *cast = (QbeCast *) qbe_node_build(q, fn, QBE_NODE_CAST, qbe_type_basic(type_kind));
+    cast->value = value;
+    cast->is_signed = is_signed;
+    return (QbeNode *) cast;
 }
 
 void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value) {

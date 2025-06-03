@@ -21,6 +21,7 @@
 #ifndef QBE_H
 #define QBE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct {
@@ -133,6 +134,7 @@ QbeCall *qbe_build_call(Qbe *q, QbeFn *fn, QbeNode *value, QbeType return_type);
 QbeNode *qbe_build_unary(Qbe *q, QbeFn *fn, QbeUnaryOp op, QbeType type, QbeNode *operand);
 QbeNode *qbe_build_binary(Qbe *q, QbeFn *fn, QbeBinaryOp op, QbeType type, QbeNode *lhs, QbeNode *rhs);
 QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type);
+QbeNode *qbe_build_cast(Qbe *q, QbeFn *fn, QbeNode *value, QbeTypeKind type_kind, bool is_signed);
 
 void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value);
 void qbe_build_block(Qbe *q, QbeFn *fn, QbeBlock *block);

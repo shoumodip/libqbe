@@ -6,7 +6,7 @@
 #define len(a) (sizeof(a) / sizeof(*(a)))
 
 static void debug_program(Qbe *q) {
-    if (0) {
+    if (1) {
         QbeSV program = qbe_get_compiled_program(q);
         fwrite(program.data, program.count, 1, stdout);
     }
@@ -158,6 +158,26 @@ static void example_struct(void) {
     exit(result);
 }
 
+static void example_cast(void) {
+    Qbe *q = qbe_new();
+
+    {
+        QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+
+        QbeNode *i8 = qbe_atom_int(q, QBE_TYPE_I8, 0);
+        qbe_build_cast(q, main, i8, QBE_TYPE_I16, false);
+
+        qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
+    }
+
+    // Compile
+    qbe_compile(q);
+    debug_program(q);
+    const int result = qbe_generate(q, QBE_TARGET_DEFAULT, "hello", NULL, 0);
+    qbe_free(q);
+    exit(result);
+}
+
 int main(void) {
-    example_struct();
+    example_cast();
 }
