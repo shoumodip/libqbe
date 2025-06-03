@@ -33,6 +33,7 @@
 typedef enum {
     QBE_SSA_NIL,
     QBE_SSA_INT,
+    QBE_SSA_FLOAT,
     QBE_SSA_LOCAL,
     QBE_SSA_GLOBAL
 } QbeSSA;
@@ -67,7 +68,10 @@ struct QbeNode {
 
     QbeSSA ssa;
     QbeSV  sv;
-    size_t iota;
+    union {
+        size_t iota;
+        double real;
+    };
 
     QbeNode *next;
 };
@@ -199,7 +203,11 @@ struct Qbe {
     QbeSB sb;
 };
 
-static_assert(QBE_COUNT_TYPES == 7, "");
+static bool qbe_type_kind_is_float(QbeTypeKind k) {
+    return k == QBE_TYPE_F32 || k == QBE_TYPE_F64;
+}
+
+static_assert(QBE_COUNT_TYPES == 9, "");
 static QbeTypeInfo qbe_type_info(QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -209,9 +217,11 @@ static QbeTypeInfo qbe_type_info(QbeType type) {
         return (QbeTypeInfo) {.size = 2, .align = 2};
 
     case QBE_TYPE_I32:
+    case QBE_TYPE_F32:
         return (QbeTypeInfo) {.size = 4, .align = 4};
 
     case QBE_TYPE_I64:
+    case QBE_TYPE_F64:
     case QBE_TYPE_PTR:
         return (QbeTypeInfo) {.size = 8, .align = 8};
 
@@ -300,7 +310,7 @@ __attribute__((format(printf, 2, 3))) static void qbe_sb_fmt(Qbe *q, const char 
     va_end(args);
 }
 
-static_assert(QBE_COUNT_TYPES == 7, "");
+static_assert(QBE_COUNT_TYPES == 9, "");
 static void qbe_sb_type(Qbe *q, QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -316,6 +326,17 @@ static void qbe_sb_type(Qbe *q, QbeType type) {
         break;
 
     case QBE_TYPE_I64:
+        qbe_sb_fmt(q, "l");
+        break;
+
+    case QBE_TYPE_F32:
+        qbe_sb_fmt(q, "s");
+        break;
+
+    case QBE_TYPE_F64:
+        qbe_sb_fmt(q, "d");
+        break;
+
     case QBE_TYPE_PTR:
         qbe_sb_fmt(q, "l");
         break;
@@ -329,7 +350,7 @@ static void qbe_sb_type(Qbe *q, QbeType type) {
     }
 }
 
-static_assert(QBE_COUNT_TYPES == 7, "");
+static_assert(QBE_COUNT_TYPES == 9, "");
 static void qbe_sb_type_ssa(Qbe *q, QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -339,6 +360,17 @@ static void qbe_sb_type_ssa(Qbe *q, QbeType type) {
         break;
 
     case QBE_TYPE_I64:
+        qbe_sb_fmt(q, "l");
+        break;
+
+    case QBE_TYPE_F32:
+        qbe_sb_fmt(q, "s");
+        break;
+
+    case QBE_TYPE_F64:
+        qbe_sb_fmt(q, "d");
+        break;
+
     case QBE_TYPE_PTR:
         qbe_sb_fmt(q, "l");
         break;
@@ -357,6 +389,14 @@ static void qbe_sb_node_ssa(Qbe *q, QbeNode *node) {
     switch (node->ssa) {
     case QBE_SSA_INT:
         qbe_sb_fmt(q, "%zu", node->iota);
+        return;
+
+    case QBE_SSA_FLOAT:
+        if (node->type.kind == QBE_TYPE_F32) {
+            qbe_sb_fmt(q, "s_%lf", node->real);
+        } else {
+            qbe_sb_fmt(q, "d_%lf", node->real);
+        }
         return;
 
     case QBE_SSA_LOCAL:
@@ -398,7 +438,7 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
 
     switch (n->kind) {
     case QBE_NODE_ATOM:
-        n->ssa = n->sv.data ? QBE_SSA_GLOBAL : QBE_SSA_INT;
+        assert(false && "unreachable");
         break;
 
     case QBE_NODE_UNARY: {
@@ -616,8 +656,33 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         qbe_sb_node_ssa(q, n);
         qbe_sb_fmt(q, " =");
         qbe_sb_type_ssa(q, n->type);
-        qbe_sb_fmt(q, " ext%c", cast->is_signed ? 's' : 'u');
-        qbe_sb_type(q, cast->value->type);
+        qbe_sb_fmt(q, " ");
+
+        if (qbe_type_kind_is_float(cast->value->type.kind)) {
+            static_assert(QBE_TYPE_F32 < QBE_TYPE_F64, "");
+
+            if (n->type.kind == QBE_TYPE_F32) {
+                // Float -> Lower Float
+                qbe_sb_fmt(q, "truncd");
+            } else if (n->type.kind == QBE_TYPE_F64) {
+                // Float -> Higher Float
+                qbe_sb_fmt(q, "exts");
+            } else {
+                // Float -> Int
+                qbe_sb_type_ssa(q, cast->value->type);
+                qbe_sb_fmt(q, "to%ci", cast->is_signed ? 's' : 'u');
+            }
+        } else if (qbe_type_kind_is_float(n->type.kind)) {
+            // Int -> Float
+            qbe_sb_fmt(q, "%c", cast->is_signed ? 's' : 'u');
+            qbe_sb_type_ssa(q, cast->value->type);
+            qbe_sb_fmt(q, "tof");
+        } else {
+            // Int -> Higher Int
+            qbe_sb_fmt(q, "ext%c", cast->is_signed ? 's' : 'u');
+            qbe_sb_type(q, cast->value->type);
+        }
+
         qbe_sb_fmt(q, " ");
         qbe_sb_node_ssa(q, cast->value);
         qbe_sb_fmt(q, "\n");
@@ -791,12 +856,21 @@ size_t qbe_sizeof(QbeType type) {
 
 QbeNode *qbe_atom_int(Qbe *q, QbeTypeKind kind, size_t n) {
     QbeNode *atom = qbe_node_alloc(q, QBE_NODE_ATOM, qbe_type_basic(kind));
+    atom->ssa = QBE_SSA_INT;
     atom->iota = n;
+    return atom;
+}
+
+QbeNode *qbe_atom_float(Qbe *q, QbeTypeKind kind, double n) {
+    QbeNode *atom = qbe_node_alloc(q, QBE_NODE_ATOM, qbe_type_basic(kind));
+    atom->ssa = QBE_SSA_FLOAT;
+    atom->real = n;
     return atom;
 }
 
 QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type) {
     QbeNode *atom = qbe_node_alloc(q, QBE_NODE_ATOM, type);
+    atom->ssa = QBE_SSA_GLOBAL;
     atom->sv = name;
     return atom;
 }
@@ -893,24 +967,30 @@ QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type) {
 }
 
 QbeNode *qbe_build_cast(Qbe *q, QbeFn *fn, QbeNode *value, QbeTypeKind type_kind, bool is_signed) {
-    static const size_t sizes[QBE_COUNT_TYPES] = {
-        [QBE_TYPE_I8] = 8,
-        [QBE_TYPE_I16] = 16,
-        [QBE_TYPE_I32] = 32,
-        [QBE_TYPE_I64] = 64,
-        [QBE_TYPE_PTR] = 64,
-    };
-
-    size_t from_size = sizes[value->type.kind];
-    assert(from_size);
-
-    assert(type_kind >= 0 && type_kind < QBE_COUNT_TYPES);
-    size_t to_size = sizes[type_kind];
-    assert(to_size);
-
-    if (to_size <= from_size) {
-        // QBE does not need explicit integer truncation
+    if (value->type.kind == type_kind) {
         return value;
+    }
+
+    if (!qbe_type_kind_is_float(value->type.kind) && !qbe_type_kind_is_float(type_kind)) {
+        static const size_t sizes[QBE_COUNT_TYPES] = {
+            [QBE_TYPE_I8] = 8,
+            [QBE_TYPE_I16] = 16,
+            [QBE_TYPE_I32] = 32,
+            [QBE_TYPE_I64] = 64,
+            [QBE_TYPE_PTR] = 64,
+        };
+
+        size_t from_size = sizes[value->type.kind];
+        assert(from_size);
+
+        assert(type_kind >= 0 && type_kind < QBE_COUNT_TYPES);
+        size_t to_size = sizes[type_kind];
+        assert(to_size);
+
+        if (to_size <= from_size) {
+            // QBE does not need explicit integer truncation
+            return value;
+        }
     }
 
     QbeCast *cast = (QbeCast *) qbe_node_build(q, fn, QBE_NODE_CAST, qbe_type_basic(type_kind));

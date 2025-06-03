@@ -46,6 +46,8 @@ typedef enum {
     QBE_TYPE_I16,
     QBE_TYPE_I32,
     QBE_TYPE_I64,
+    QBE_TYPE_F32,
+    QBE_TYPE_F64,
     QBE_TYPE_PTR,
     QBE_TYPE_STRUCT,
     QBE_COUNT_TYPES
@@ -114,6 +116,7 @@ size_t  qbe_sizeof(QbeType type);
 
 // Atoms
 QbeNode *qbe_atom_int(Qbe *q, QbeTypeKind kind, size_t n);
+QbeNode *qbe_atom_float(Qbe *q, QbeTypeKind kind, double n);
 QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type);
 
 // Creators
@@ -134,6 +137,13 @@ QbeCall *qbe_build_call(Qbe *q, QbeFn *fn, QbeNode *value, QbeType return_type);
 QbeNode *qbe_build_unary(Qbe *q, QbeFn *fn, QbeUnaryOp op, QbeType type, QbeNode *operand);
 QbeNode *qbe_build_binary(Qbe *q, QbeFn *fn, QbeBinaryOp op, QbeType type, QbeNode *lhs, QbeNode *rhs);
 QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type);
+
+// Rules for 'is_signed':
+//
+// Int   -> Int   -- Signedness of the final type
+// Float -> Int   -- Signedness of the final type
+// Int   -> Float -- Signedness of the original type
+// Float -> Float -- Doesn't matter
 QbeNode *qbe_build_cast(Qbe *q, QbeFn *fn, QbeNode *value, QbeTypeKind type_kind, bool is_signed);
 
 void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value);
