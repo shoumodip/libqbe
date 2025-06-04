@@ -207,6 +207,56 @@ static void example_float(void) {
     exit(result);
 }
 
+static void example_phi(void) {
+    Qbe *q = qbe_new();
+
+    {
+        QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+
+        QbeBlock *is_true = qbe_block_new(q);
+        QbeBlock *is_false = qbe_block_new(q);
+        QbeBlock *phi = qbe_block_new(q);
+
+        qbe_build_branch(q, main, qbe_atom_int(q, QBE_TYPE_I32, true), is_true, is_false);
+
+        // True
+        qbe_build_block(q, main, is_true);
+        qbe_build_jump(q, main, phi);
+
+        // False
+        qbe_build_block(q, main, is_false);
+        qbe_build_jump(q, main, phi);
+
+        // Phi
+        qbe_build_block(q, main, phi);
+        QbePhiBranch phi_is_true = {
+            .block = is_true,
+            .value = qbe_atom_int(q, QBE_TYPE_I64, 69),
+        };
+
+        QbePhiBranch phi_is_false = {
+            .block = is_false,
+            .value = qbe_atom_int(q, QBE_TYPE_I64, 420),
+        };
+
+        QbeNode *x = qbe_build_phi(q, main, phi_is_true, phi_is_false);
+        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_PTR));
+
+        QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
+        qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
+        qbe_call_add_arg(q, call, x);
+
+        qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
+    }
+
+    // Compile
+    qbe_compile(q);
+    debug_program(q);
+    const int result = qbe_generate(q, QBE_TARGET_DEFAULT, "hello", NULL, 0);
+    qbe_free(q);
+    exit(result);
+}
+
 int main(void) {
-    example_float();
+    example_phi();
 }

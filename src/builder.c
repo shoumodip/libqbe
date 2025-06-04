@@ -44,6 +44,7 @@ typedef enum {
     QBE_NODE_BINARY,
 
     QBE_NODE_ARG,
+    QBE_NODE_PHI,
     QBE_NODE_CALL,
     QBE_NODE_CAST,
     QBE_NODE_LOAD,
@@ -100,6 +101,12 @@ typedef struct {
     QbeNode  node;
     QbeNode *value;
 } QbeArg;
+
+typedef struct {
+    QbeNode      node;
+    QbePhiBranch a;
+    QbePhiBranch b;
+} QbePhi;
 
 struct QbeCall {
     QbeNode  node;
@@ -244,13 +251,14 @@ static void qbe_nodes_push(QbeNodes *ns, QbeNode *node) {
 }
 
 static QbeNode *qbe_node_alloc(Qbe *q, QbeNodeKind kind, QbeType type) {
-    static_assert(QBE_COUNT_NODES == 16, "");
+    static_assert(QBE_COUNT_NODES == 17, "");
     static const size_t sizes[QBE_COUNT_NODES] = {
         [QBE_NODE_ATOM] = sizeof(QbeNode),
         [QBE_NODE_UNARY] = sizeof(QbeUnary),
         [QBE_NODE_BINARY] = sizeof(QbeBinary),
 
         [QBE_NODE_ARG] = sizeof(QbeArg),
+        [QBE_NODE_PHI] = sizeof(QbePhi),
         [QBE_NODE_CALL] = sizeof(QbeCall),
         [QBE_NODE_CAST] = sizeof(QbeCast),
         [QBE_NODE_LOAD] = sizeof(QbeLoad),
@@ -430,7 +438,7 @@ static inline size_t qbe_block_iota(Qbe *q, QbeBlock *block) {
     return block->node.iota;
 }
 
-static_assert(QBE_COUNT_NODES == 16, "");
+static_assert(QBE_COUNT_NODES == 17, "");
 static void qbe_compile_node(Qbe *q, QbeNode *n) {
     if (!n || n->ssa) {
         return;
@@ -610,6 +618,28 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
     case QBE_NODE_ARG:
         assert(false && "unreachable");
         break;
+
+    case QBE_NODE_PHI: {
+        QbePhi *phi = (QbePhi *) n;
+        qbe_compile_node(q, phi->a.value);
+        qbe_compile_node(q, phi->b.value);
+
+        size_t a_block = qbe_block_iota(q, phi->a.block);
+        size_t b_block = qbe_block_iota(q, phi->b.block);
+
+        n->ssa = QBE_SSA_LOCAL;
+        n->iota = q->locals++;
+
+        qbe_sb_indent(q);
+        qbe_sb_node_ssa(q, n);
+        qbe_sb_fmt(q, " =");
+        qbe_sb_type_ssa(q, n->type);
+        qbe_sb_fmt(q, " phi @.%zu ", a_block);
+        qbe_sb_node_ssa(q, phi->a.value);
+        qbe_sb_fmt(q, ", @.%zu ", b_block);
+        qbe_sb_node_ssa(q, phi->b.value);
+        qbe_sb_fmt(q, "\n");
+    } break;
 
     case QBE_NODE_CALL: {
         QbeCall *call = (QbeCall *) n;
@@ -937,6 +967,15 @@ QbeNode *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type) {
     QbeNode *field = qbe_node_alloc(q, QBE_NODE_FIELD, field_type);
     qbe_nodes_push(&st->fields, field);
     return field;
+}
+
+QbeNode *qbe_build_phi(Qbe *q, QbeFn *fn, QbePhiBranch a, QbePhiBranch b) {
+    assert(a.value->type.kind == b.value->type.kind && a.value->type.spec == b.value->type.spec);
+
+    QbePhi *phi = (QbePhi *) qbe_node_build(q, fn, QBE_NODE_PHI, a.value->type);
+    phi->a = a;
+    phi->b = b;
+    return (QbeNode *) phi;
 }
 
 QbeCall *qbe_build_call(Qbe *q, QbeFn *fn, QbeNode *value, QbeType return_type) {

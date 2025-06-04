@@ -40,6 +40,11 @@ typedef struct QbeCall   QbeCall;
 typedef struct QbeBlock  QbeBlock;
 typedef struct QbeStruct QbeStruct;
 
+typedef struct {
+    QbeNode  *value;
+    QbeBlock *block;
+} QbePhiBranch;
+
 typedef enum {
     QBE_TYPE_I0,
     QBE_TYPE_I8,
@@ -133,6 +138,7 @@ QbeNode *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type);
 QbeNode *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type);
 
 // Builder
+QbeNode *qbe_build_phi(Qbe *q, QbeFn *fn, QbePhiBranch a, QbePhiBranch b);
 QbeCall *qbe_build_call(Qbe *q, QbeFn *fn, QbeNode *value, QbeType return_type);
 QbeNode *qbe_build_unary(Qbe *q, QbeFn *fn, QbeUnaryOp op, QbeType type, QbeNode *operand);
 QbeNode *qbe_build_binary(Qbe *q, QbeFn *fn, QbeBinaryOp op, QbeType type, QbeNode *lhs, QbeNode *rhs);
