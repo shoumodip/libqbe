@@ -164,6 +164,24 @@ qbe_strf(char str[NString], char *s, ...)
 	va_end(ap);
 }
 
+// Modification BEGIN
+// Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
+void
+qbe_free_interns(void)
+{
+    size_t n = (sizeof(itbl) / sizeof(*itbl));
+    for (size_t i = 0; i < n; i++) {
+        Bucket *b = &itbl[i];
+        if (b->nstr) {
+            for (size_t j = 0; j < b->nstr; j++) {
+                free(b->str[j]);
+            }
+            qbe_vfree(b->str);
+        }
+    }
+}
+// Modification END
+
 uint32_t
 qbe_intern(char *s)
 {

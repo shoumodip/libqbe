@@ -455,6 +455,7 @@ void qbe_die_(char *, char *, ...) __attribute__((noreturn));
 void *qbe_emalloc(size_t);
 void *qbe_alloc(size_t);
 void qbe_freeall(void);
+void qbe_free_interns(void);
 void *qbe_vnew(ulong, size_t, Pool);
 void qbe_vfree(void *);
 void qbe_vgrow(void *, ulong);
