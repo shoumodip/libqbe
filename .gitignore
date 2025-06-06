@@ -1,7 +1,6 @@
 *.o
 lib/
 demo/*
-!demo/vec3.c
-!demo/main.c
+!demo/*.c
 !demo/Makefile
 !demo/README.md

@@ -60,6 +60,7 @@ typedef enum {
     QBE_NODE_FIELD,
     QBE_NODE_STRUCT,
 
+    QBE_NODE_DEBUG,
     QBE_COUNT_NODES,
 } QbeNodeKind;
 
@@ -156,6 +157,7 @@ struct QbeFn {
     QbeNodes body;
 
     QbeType return_type;
+    QbeSV   debug_file;
 };
 
 typedef struct {
@@ -189,6 +191,11 @@ struct QbeStruct {
 
     bool info_ready;
 };
+
+typedef struct {
+    QbeNode node;
+    size_t  line;
+} QbeDebug;
 
 typedef struct {
     char  *data;
@@ -251,7 +258,7 @@ static void qbe_nodes_push(QbeNodes *ns, QbeNode *node) {
 }
 
 static QbeNode *qbe_node_alloc(Qbe *q, QbeNodeKind kind, QbeType type) {
-    static_assert(QBE_COUNT_NODES == 17, "");
+    static_assert(QBE_COUNT_NODES == 18, "");
     static const size_t sizes[QBE_COUNT_NODES] = {
         [QBE_NODE_ATOM] = sizeof(QbeNode),
         [QBE_NODE_UNARY] = sizeof(QbeUnary),
@@ -273,6 +280,8 @@ static QbeNode *qbe_node_alloc(Qbe *q, QbeNodeKind kind, QbeType type) {
         [QBE_NODE_BLOCK] = sizeof(QbeBlock),
         [QBE_NODE_FIELD] = sizeof(QbeField),
         [QBE_NODE_STRUCT] = sizeof(QbeStruct),
+
+        [QBE_NODE_DEBUG] = sizeof(QbeDebug),
     };
 
     assert(kind >= QBE_NODE_ATOM && kind < QBE_COUNT_NODES);
@@ -438,7 +447,22 @@ static inline size_t qbe_block_iota(Qbe *q, QbeBlock *block) {
     return block->node.iota;
 }
 
-static_assert(QBE_COUNT_NODES == 17, "");
+static inline void qbe_sb_quote_sv(Qbe *q, QbeSV sv) {
+    qbe_sb_fmt(q, "\"");
+    for (size_t i = 0; i < sv.count; i++) {
+        const char it = sv.data[i];
+        if (it == '"') {
+            qbe_sb_fmt(q, "\\\"");
+        } else if (isprint(it)) {
+            qbe_sb_fmt(q, "%c", it);
+        } else {
+            qbe_sb_fmt(q, "\\x%x", it);
+        }
+    }
+    qbe_sb_fmt(q, "\"");
+}
+
+static_assert(QBE_COUNT_NODES == 18, "");
 static void qbe_compile_node(Qbe *q, QbeNode *n) {
     if (!n || n->ssa) {
         return;
@@ -832,6 +856,12 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         assert(false && "unreachable");
         break;
 
+    case QBE_NODE_DEBUG: {
+        QbeDebug *debug = (QbeDebug *) n;
+        qbe_sb_indent(q);
+        qbe_sb_fmt(q, "dbgloc %zu\n", debug->line);
+    } break;
+
     default:
         assert(false && "unreachable");
     }
@@ -1062,9 +1092,18 @@ void qbe_build_branch(Qbe *q, QbeFn *fn, QbeNode *cond, QbeBlock *then_block, Qb
 }
 
 void qbe_build_return(Qbe *q, QbeFn *fn, QbeNode *value) {
-    QbeReturn *ret = (QbeReturn *) qbe_node_alloc(q, QBE_NODE_RETURN, qbe_type_basic(QBE_TYPE_I0));
+    QbeReturn *ret = (QbeReturn *) qbe_node_build(q, fn, QBE_NODE_RETURN, qbe_type_basic(QBE_TYPE_I0));
     ret->value = value;
-    qbe_nodes_push(&fn->body, (QbeNode *) ret);
+}
+
+void qbe_fn_set_debug_file(Qbe *q, QbeFn *fn, QbeSV path) {
+    (void) q; // For symmetry
+    fn->debug_file = path;
+}
+
+void qbe_build_debug_line(Qbe *q, QbeFn *fn, size_t line) {
+    QbeDebug *debug = (QbeDebug *) qbe_node_build(q, fn, QBE_NODE_DEBUG, qbe_type_basic(QBE_TYPE_I0));
+    debug->line = line;
 }
 
 Qbe *qbe_new(void) {
@@ -1126,20 +1165,9 @@ void qbe_compile(Qbe *q) {
         qbe_sb_node_ssa(q, it);
 
         if (var->str.data) {
-            qbe_sb_fmt(q, " = align 1 { b \"");
-
-            for (size_t i = 0; i < var->str.count; i++) {
-                const char it = var->str.data[i];
-                if (it == '"') {
-                    qbe_sb_fmt(q, "\\\"");
-                } else if (isprint(it)) {
-                    qbe_sb_fmt(q, "%c", it);
-                } else {
-                    qbe_sb_fmt(q, "\\x%x", it);
-                }
-            }
-
-            qbe_sb_fmt(q, "\", b 0 }\n");
+            qbe_sb_fmt(q, " = align 1 { b ");
+            qbe_sb_quote_sv(q, var->str);
+            qbe_sb_fmt(q, ", b 0 }\n");
         } else {
             QbeTypeInfo info = qbe_type_info(var->type);
             qbe_sb_fmt(q, " = align %zu { z %zu }\n", info.align, info.size);
@@ -1148,6 +1176,12 @@ void qbe_compile(Qbe *q) {
 
     for (QbeNode *it = q->fns.head; it; it = it->next) {
         QbeFn *fn = (QbeFn *) it;
+
+        if (fn->debug_file.data) {
+            qbe_sb_fmt(q, "dbgfile ");
+            qbe_sb_quote_sv(q, fn->debug_file);
+            qbe_sb_fmt(q, "\n");
+        }
 
         if (it->sv.data) {
             qbe_sb_fmt(q, "export ");

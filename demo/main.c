@@ -64,8 +64,10 @@ static void example_while(void) {
     Qbe *q = qbe_new();
 
     {
-        QbeFn   *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
         QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
+
+        QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+        qbe_fn_set_debug_file(q, main, qbe_sv_from_cstr("hello.c"));
 
         QbeBlock *cond_block = qbe_block_new(q);
         QbeBlock *body_block = qbe_block_new(q);
@@ -73,6 +75,7 @@ static void example_while(void) {
 
         // Condition
         qbe_build_block(q, main, cond_block);
+        qbe_build_debug_line(q, main, 6);
 
         QbeNode *cond = qbe_build_binary(
             q,
@@ -86,12 +89,14 @@ static void example_while(void) {
 
         // Body
         qbe_build_block(q, main, body_block);
+        qbe_build_debug_line(q, main, 7);
 
         QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_PTR));
         QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
         qbe_call_add_arg(q, call, qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)));
 
+        qbe_build_debug_line(q, main, 8);
         qbe_build_store(
             q,
             main,
@@ -109,6 +114,7 @@ static void example_while(void) {
 
         // Over
         qbe_build_block(q, main, over_block);
+        qbe_build_debug_line(q, main, 11);
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
 
@@ -258,5 +264,5 @@ static void example_phi(void) {
 }
 
 int main(void) {
-    example_phi();
+    example_while();
 }

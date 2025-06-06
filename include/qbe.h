@@ -158,6 +158,10 @@ void qbe_build_jump(Qbe *q, QbeFn *fn, QbeBlock *block);
 void qbe_build_branch(Qbe *q, QbeFn *fn, QbeNode *cond, QbeBlock *then_block, QbeBlock *else_block);
 void qbe_build_return(Qbe *q, QbeFn *fn, QbeNode *value);
 
+// Debug
+void qbe_build_debug_line(Qbe *q, QbeFn *fn, size_t line);
+void qbe_fn_set_debug_file(Qbe *q, QbeFn *fn, QbeSV path);
+
 // Primitives
 Qbe *qbe_new(void);
 void qbe_free(Qbe *q);
