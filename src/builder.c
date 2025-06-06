@@ -1135,6 +1135,8 @@ void qbe_free(Qbe *q) {
 }
 
 void qbe_compile(Qbe *q) {
+    q->sb.count = 0;
+
     {
         size_t iota = 0;
 
@@ -1157,7 +1159,6 @@ void qbe_compile(Qbe *q) {
         }
     }
 
-    // TODO: Intern structs
     for (QbeNode *it = q->structs.head; it; it = it->next) {
         QbeStruct *st = (QbeStruct *) it;
 
