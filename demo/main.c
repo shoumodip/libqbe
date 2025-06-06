@@ -132,7 +132,7 @@ static void example_struct(void) {
     {
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
 
-        QbeStruct *Vec3 = qbe_struct_new(q);
+        QbeStruct *Vec3 = qbe_struct_new(q, false);
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));

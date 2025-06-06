@@ -177,18 +177,21 @@ typedef struct {
     size_t size;
 } QbeTypeInfo;
 
-typedef struct {
+struct QbeField {
     QbeNode node;
 
     size_t      offset;
     QbeTypeInfo info;
-} QbeField;
+
+    QbeStruct *parent;
+};
 
 struct QbeStruct {
     QbeNode     node;
     QbeNodes    fields;
     QbeTypeInfo info;
 
+    bool packed;
     bool info_ready;
 };
 
@@ -240,6 +243,7 @@ static QbeTypeInfo qbe_type_info(QbeType type) {
         return (QbeTypeInfo) {.size = 8, .align = 8};
 
     case QBE_TYPE_STRUCT:
+        assert(type.spec->info_ready);
         return type.spec->info;
 
     default:
@@ -883,7 +887,7 @@ QbeType qbe_type_struct(QbeStruct *spec) {
         for (QbeNode *it = spec->fields.head; it; it = it->next) {
             QbeField *field = (QbeField *) it;
             field->info = qbe_type_info(it->type);
-            if (spec->info.align < field->info.align) {
+            if (!spec->packed && spec->info.align < field->info.align) {
                 spec->info.align = field->info.align;
             }
         }
@@ -893,12 +897,18 @@ QbeType qbe_type_struct(QbeStruct *spec) {
             QbeField   *field = (QbeField *) it;
             QbeTypeInfo info = field->info;
 
-            offset += (info.align - (offset % info.align)) % info.align;
+            if (!spec->packed) {
+                offset += (info.align - (offset % info.align)) % info.align;
+            }
+
             field->offset = offset;
             offset += info.size;
         }
 
-        offset += (spec->info.align - (offset % spec->info.align)) % spec->info.align;
+        if (!spec->packed) {
+            offset += (spec->info.align - (offset % spec->info.align)) % spec->info.align;
+        }
+
         spec->info.size = offset;
         spec->info_ready = true;
     }
@@ -912,6 +922,11 @@ QbeType qbe_typeof(QbeNode *node) {
 
 size_t qbe_sizeof(QbeType type) {
     return qbe_type_info(type).size;
+}
+
+size_t qbe_offsetof(QbeField *field) {
+    assert(field->parent->info_ready);
+    return field->offset;
 }
 
 QbeNode *qbe_atom_int(Qbe *q, QbeTypeKind kind, size_t n) {
@@ -964,10 +979,11 @@ QbeBlock *qbe_block_new(Qbe *q) {
     return (QbeBlock *) qbe_node_alloc(q, QBE_NODE_BLOCK, qbe_type_basic(QBE_TYPE_I0));
 }
 
-QbeStruct *qbe_struct_new(Qbe *q) {
-    QbeNode *st = qbe_node_alloc(q, QBE_NODE_STRUCT, qbe_type_basic(QBE_TYPE_I0));
-    qbe_nodes_push(&q->structs, st);
-    return (QbeStruct *) st;
+QbeStruct *qbe_struct_new(Qbe *q, bool packed) {
+    QbeStruct *st = (QbeStruct *) qbe_node_alloc(q, QBE_NODE_STRUCT, qbe_type_basic(QBE_TYPE_I0));
+    st->packed = packed;
+    qbe_nodes_push(&q->structs, (QbeNode *) st);
+    return st;
 }
 
 void qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg) {
@@ -992,10 +1008,12 @@ QbeNode *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type) {
     return (QbeNode *) var;
 }
 
-QbeNode *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type) {
+QbeField *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type) {
     st->info_ready = false;
-    QbeNode *field = qbe_node_alloc(q, QBE_NODE_FIELD, field_type);
-    qbe_nodes_push(&st->fields, field);
+    QbeField *field = (QbeField *) qbe_node_alloc(q, QBE_NODE_FIELD, field_type);
+    field->parent = st;
+
+    qbe_nodes_push(&st->fields, (QbeNode *) field);
     return field;
 }
 

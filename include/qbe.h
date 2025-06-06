@@ -38,6 +38,7 @@ typedef struct QbeNode QbeNode;
 typedef struct QbeFn     QbeFn;
 typedef struct QbeCall   QbeCall;
 typedef struct QbeBlock  QbeBlock;
+typedef struct QbeField  QbeField;
 typedef struct QbeStruct QbeStruct;
 
 typedef struct {
@@ -118,6 +119,7 @@ QbeType qbe_type_struct(QbeStruct *spec);
 
 QbeType qbe_typeof(QbeNode *node);
 size_t  qbe_sizeof(QbeType type);
+size_t  qbe_offsetof(QbeField *field);
 
 // Atoms
 QbeNode *qbe_atom_int(Qbe *q, QbeTypeKind kind, size_t n);
@@ -129,13 +131,13 @@ QbeFn     *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type);
 QbeNode   *qbe_var_new(Qbe *q, QbeSV name, QbeType type);
 QbeNode   *qbe_str_new(Qbe *q, QbeSV sv);
 QbeBlock  *qbe_block_new(Qbe *q);
-QbeStruct *qbe_struct_new(Qbe *q);
+QbeStruct *qbe_struct_new(Qbe *q, bool packed);
 
 // Adders
-void     qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
-QbeNode *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type);
-QbeNode *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type);
-QbeNode *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type);
+void      qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
+QbeNode  *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type);
+QbeNode  *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type);
+QbeField *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type);
 
 // Builder
 QbeNode *qbe_build_phi(Qbe *q, QbeFn *fn, QbePhiBranch a, QbePhiBranch b);
