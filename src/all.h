@@ -455,7 +455,7 @@ void qbe_die_(char *, char *, ...) __attribute__((noreturn));
 void *qbe_emalloc(size_t);
 void *qbe_alloc(size_t);
 void qbe_freeall(void);
-void qbe_free_interns(void);
+void qbe_util_resetall(void);
 void *qbe_vnew(ulong, size_t, Pool);
 void qbe_vfree(void *);
 void qbe_vgrow(void *, ulong);
@@ -569,6 +569,7 @@ void qbe_rega(Fn *);
 /* emit.c */
 void qbe_emitfnlnk(char *, Lnk *, FILE *);
 void qbe_emitdat(Dat *, FILE *);
+void qbe_emit_resetall(void);
 void qbe_emitdbgfile(char *, FILE *);
 void qbe_emitdbgloc(uint, uint, FILE *);
 int qbe_stashbits(void *, int);

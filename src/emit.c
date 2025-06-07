@@ -212,6 +212,20 @@ static uint32_t *file;
 static uint nfile;
 static uint curfile;
 
+// Modification BEGIN
+// Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
+void
+qbe_emit_resetall(void)
+{
+    if (file) {
+        qbe_vfree(file);
+        file = NULL;
+    }
+    nfile = 0;
+    curfile = 0;
+}
+// Modification END
+
 void
 qbe_emitdbgfile(char *fn, FILE *f)
 {

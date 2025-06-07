@@ -222,7 +222,9 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
     if (!dbg) {
         qbe_T.emitfin(qbe_output);
     }
-    qbe_free_interns();
+
+    qbe_util_resetall();
+    qbe_emit_resetall();
 
     fclose(qbe_input);
     fclose(qbe_output);

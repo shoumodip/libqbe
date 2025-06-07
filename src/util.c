@@ -167,7 +167,7 @@ qbe_strf(char str[NString], char *s, ...)
 // Modification BEGIN
 // Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
 void
-qbe_free_interns(void)
+qbe_util_resetall(void)
 {
     size_t n = (sizeof(itbl) / sizeof(*itbl));
     for (size_t i = 0; i < n; i++) {
@@ -179,6 +179,14 @@ qbe_free_interns(void)
             qbe_vfree(b->str);
         }
     }
+
+    qbe_typ = NULL;
+    memset(qbe_insb, 0, sizeof(qbe_insb));
+    qbe_curi = NULL;
+    memset(ptr, 0, sizeof(ptr));
+    pool = ptr;
+    nptr = 1;
+    memset(itbl, 0, sizeof(itbl));
 }
 // Modification END
 
