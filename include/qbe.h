@@ -41,11 +41,6 @@ typedef struct QbeBlock  QbeBlock;
 typedef struct QbeField  QbeField;
 typedef struct QbeStruct QbeStruct;
 
-typedef struct {
-    QbeNode  *value;
-    QbeBlock *block;
-} QbePhiBranch;
-
 typedef enum {
     QBE_TYPE_I0,
     QBE_TYPE_I8,
@@ -101,13 +96,18 @@ typedef enum {
     QBE_COUNT_BINARYS
 } QbeBinaryOp;
 
+typedef struct {
+    QbeNode  *value;
+    QbeBlock *block;
+} QbePhiBranch;
+
 typedef enum {
     QBE_TARGET_DEFAULT,
-    QBE_TARGET_X86_64_SYSV,
-    QBE_TARGET_X86_64_APPLE,
-    QBE_TARGET_ARM64,
-    QBE_TARGET_ARM64_APPLE,
-    QBE_TARGET_RV64
+    QBE_TARGET_X86_64_LINUX,
+    QBE_TARGET_X86_64_MACOS,
+    QBE_TARGET_ARM64_LINUX,
+    QBE_TARGET_ARM64_MACOS,
+    QBE_TARGET_RV64_LINUX
 } QbeTarget;
 
 // String View

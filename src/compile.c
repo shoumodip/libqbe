@@ -143,7 +143,7 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
 #elif defined(__APPLE__) && defined(__aarch64__)
         target = QBE_TARGET_ARM64_APPLE;
 #elif defined(__x86_64__)
-        target = QBE_TARGET_X86_64_SYSV;
+        target = QBE_TARGET_X86_64_LINUX;
 #elif defined(__aarch64__)
         target = QBE_TARGET_ARM64;
 #elif defined(__riscv) && __riscv_xlen == 64
@@ -154,23 +154,23 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
     }
 
     switch (target) {
-    case QBE_TARGET_X86_64_SYSV:
+    case QBE_TARGET_X86_64_LINUX:
         qbe_T = qbe_T_amd64_sysv;
         break;
 
-    case QBE_TARGET_X86_64_APPLE:
+    case QBE_TARGET_X86_64_MACOS:
         qbe_T = qbe_T_amd64_apple;
         break;
 
-    case QBE_TARGET_ARM64:
+    case QBE_TARGET_ARM64_LINUX:
         qbe_T = qbe_T_arm64;
         break;
 
-    case QBE_TARGET_ARM64_APPLE:
+    case QBE_TARGET_ARM64_MACOS:
         qbe_T = qbe_T_arm64_apple;
         break;
 
-    case QBE_TARGET_RV64:
+    case QBE_TARGET_RV64_LINUX:
         qbe_T = qbe_T_rv64;
         break;
 
