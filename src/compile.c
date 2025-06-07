@@ -139,15 +139,15 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
 
     if (target == QBE_TARGET_DEFAULT) {
 #if defined(__APPLE__) && defined(__x86_64__)
-        target = QBE_TARGET_X86_64_APPLE;
+        target = QBE_TARGET_X86_64_MACOS;
 #elif defined(__APPLE__) && defined(__aarch64__)
-        target = QBE_TARGET_ARM64_APPLE;
+        target = QBE_TARGET_ARM64_MACOS;
 #elif defined(__x86_64__)
         target = QBE_TARGET_X86_64_LINUX;
 #elif defined(__aarch64__)
-        target = QBE_TARGET_ARM64;
+        target = QBE_TARGET_ARM64_LINUX;
 #elif defined(__riscv) && __riscv_xlen == 64
-        target = QBE_TARGET_RV64;
+        target = QBE_TARGET_RV64_LINUX;
 #else
 #    error "Unknown or unsupported architecture"
 #endif
