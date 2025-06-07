@@ -234,6 +234,7 @@ struct Qbe {
 
     QbeHashedStructTable hashed_struct_table;
 
+    bool  compiled;
     QbeSB sb;
 };
 
@@ -279,6 +280,8 @@ static void qbe_nodes_push(QbeNodes *ns, QbeNode *node) {
 }
 
 static QbeNode *qbe_node_alloc(Qbe *q, QbeNodeKind kind, QbeType type) {
+    assert(!q->compiled && "This QBE context is already compiled");
+
     static_assert(QBE_COUNT_NODES == 18, "");
     static const size_t sizes[QBE_COUNT_NODES] = {
         [QBE_NODE_ATOM] = sizeof(QbeNode),
@@ -948,12 +951,6 @@ static void qbe_hashed_struct_table_resize(QbeHashedStructTable *table, size_t n
     free(old_data);
 }
 
-static void qbe_hashed_struct_table_reset(QbeHashedStructTable *table) {
-    table->iota = 0;
-    table->count = 0;
-    memset(table->data, 0, table->capacity * sizeof(*table->data));
-}
-
 static bool qbe_hashed_struct_table_new(QbeHashedStructTable *table, QbeStruct *st) {
     if (!table->data) {
         table->capacity = 128;
@@ -1134,8 +1131,6 @@ QbeField *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type) {
 }
 
 QbeNode *qbe_build_phi(Qbe *q, QbeFn *fn, QbePhiBranch a, QbePhiBranch b) {
-    assert(a.value->type.kind == b.value->type.kind && a.value->type.spec == b.value->type.spec);
-
     QbePhi *phi = (QbePhi *) qbe_node_build(q, fn, QBE_NODE_PHI, a.value->type);
     phi->a = a;
     phi->b = b;
@@ -1209,7 +1204,7 @@ void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value) {
 }
 
 void qbe_build_block(Qbe *q, QbeFn *fn, QbeBlock *block) {
-    (void) q; // For symmetry
+    assert(!q->compiled && "This QBE context is already compiled");
     qbe_nodes_push(&fn->body, (QbeNode *) block);
 }
 
@@ -1231,7 +1226,7 @@ void qbe_build_return(Qbe *q, QbeFn *fn, QbeNode *value) {
 }
 
 void qbe_fn_set_debug_file(Qbe *q, QbeFn *fn, QbeSV path) {
-    (void) q; // For symmetry
+    assert(!q->compiled && "This QBE context is already compiled");
     fn->debug_file = path;
 }
 
@@ -1252,8 +1247,8 @@ void qbe_free(Qbe *q) {
 }
 
 void qbe_compile(Qbe *q) {
-    qbe_hashed_struct_table_reset(&q->hashed_struct_table);
-    q->sb.count = 0;
+    assert(!q->compiled && "This QBE context is already compiled");
+    q->compiled = true;
 
     {
         size_t iota = 0;
@@ -1370,6 +1365,10 @@ void qbe_compile(Qbe *q) {
 
         qbe_sb_fmt(q, "}\n");
     }
+}
+
+bool qbe_has_been_compiled(Qbe *q) {
+    return q->compiled;
 }
 
 QbeSV qbe_get_compiled_program(Qbe *q) {

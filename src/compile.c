@@ -133,6 +133,10 @@ void cmd_push(Cmd *c, const char *arg) {
 }
 
 int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
+    if (!qbe_has_been_compiled(q)) {
+        qbe_compile(q);
+    }
+
     if (target == QBE_TARGET_DEFAULT) {
 #if defined(__APPLE__) && defined(__x86_64__)
         target = QBE_TARGET_X86_64_APPLE;

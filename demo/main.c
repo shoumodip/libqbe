@@ -5,13 +5,6 @@
 
 #define len(a) (sizeof(a) / sizeof(*(a)))
 
-static void debug_program(Qbe *q) {
-    if (0) {
-        QbeSV program = qbe_get_compiled_program(q);
-        fwrite(program.data, program.count, 1, stdout);
-    }
-}
-
 static void example_if(void) {
     Qbe *q = qbe_new();
 
@@ -52,8 +45,6 @@ static void example_if(void) {
     }
 
     // Compile
-    qbe_compile(q);
-    debug_program(q);
     int result = qbe_generate(q, QBE_TARGET_DEFAULT, "example_if", NULL, 0);
     qbe_free(q);
 
@@ -95,8 +86,6 @@ static void example_struct(void) {
     }
 
     // Compile
-    qbe_compile(q);
-    debug_program(q);
     const char *flags[] = {
         "-L.",
         "-lvec3",
@@ -122,8 +111,6 @@ static void example_cast(void) {
     }
 
     // Compile
-    qbe_compile(q);
-    debug_program(q);
     const int result = qbe_generate(q, QBE_TARGET_DEFAULT, "example_cast", NULL, 0);
     qbe_free(q);
 
@@ -153,8 +140,6 @@ static void example_float(void) {
     }
 
     // Compile
-    qbe_compile(q);
-    debug_program(q);
     const int result = qbe_generate(q, QBE_TARGET_DEFAULT, "example_float", NULL, 0);
     qbe_free(q);
 
@@ -206,8 +191,6 @@ static void example_phi(void) {
     }
 
     // Compile
-    qbe_compile(q);
-    debug_program(q);
     const int result = qbe_generate(q, QBE_TARGET_DEFAULT, "example_phi", NULL, 0);
     qbe_free(q);
 
@@ -275,8 +258,6 @@ static void example_while_with_debug(void) {
     }
 
     // Compile
-    qbe_compile(q);
-    debug_program(q);
     int result = qbe_generate(q, QBE_TARGET_DEFAULT, "example_while_with_debug", NULL, 0);
     qbe_free(q);
 
