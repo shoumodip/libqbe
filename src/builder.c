@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -187,12 +188,15 @@ struct QbeField {
 };
 
 struct QbeStruct {
-    QbeNode     node;
-    QbeNodes    fields;
+    QbeNode node;
+
+    QbeNodes fields;
+    size_t   fields_count;
+
     QbeTypeInfo info;
+    bool        info_ready;
 
     bool packed;
-    bool info_ready;
 };
 
 typedef struct {
@@ -206,6 +210,18 @@ typedef struct {
     size_t capacity;
 } QbeSB;
 
+typedef struct {
+    uint64_t   hash;
+    QbeStruct *st;
+} QbeHashedStruct;
+
+typedef struct {
+    QbeHashedStruct *data;
+    size_t           count;
+    size_t           capacity;
+    size_t           iota;
+} QbeHashedStructTable;
+
 struct Qbe {
     Arena arena;
 
@@ -213,9 +229,10 @@ struct Qbe {
     QbeNodes vars;
     QbeNodes structs;
 
-    size_t types;
     size_t blocks;
     size_t locals;
+
+    QbeHashedStructTable hashed_struct_table;
 
     QbeSB sb;
 };
@@ -871,6 +888,104 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
     }
 }
 
+static uint64_t qbe_struct_hash(const QbeStruct *st) {
+    uint64_t hash = 14695981039346656037ULL;
+    for (QbeNode *it = st->fields.head; it; it = it->next) {
+        hash ^= (uint64_t) it->type.kind;
+        hash *= 1099511628211ULL;
+
+        if (it->type.kind == QBE_TYPE_STRUCT && it->type.spec) {
+            hash ^= (uint64_t) ((uintptr_t) it->type.spec >> 3);
+            hash *= 1099511628211ULL;
+        }
+    }
+
+    hash ^= (uint64_t) st->packed;
+    hash *= 1099511628211ULL;
+    return hash;
+}
+
+static bool qbe_struct_equal(const QbeStruct *a, const QbeStruct *b) {
+    if (a->fields_count != b->fields_count || a->packed != b->packed) {
+        return false;
+    }
+
+    for (QbeNode *na = a->fields.head, *nb = b->fields.head; na && nb; na = na->next, nb = nb->next) {
+        if (na->type.kind != nb->type.kind) {
+            return false;
+        }
+
+        if (na->type.kind == QBE_TYPE_STRUCT && na->type.spec != nb->type.spec) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static void qbe_hashed_struct_table_resize(QbeHashedStructTable *table, size_t new_capacity) {
+    QbeHashedStruct *old_data = table->data;
+    size_t           old_capacity = table->capacity;
+
+    table->data = calloc(new_capacity, sizeof(QbeHashedStruct));
+    table->capacity = new_capacity;
+    table->count = 0;
+
+    for (size_t i = 0; i < old_capacity; ++i) {
+        if (!old_data[i].st) {
+            continue;
+        }
+
+        size_t index = old_data[i].hash & (new_capacity - 1);
+        while (table->data[index].st) {
+            index = (index + 1) & (new_capacity - 1);
+        }
+
+        table->data[index] = old_data[i];
+        table->count++;
+    }
+
+    free(old_data);
+}
+
+static void qbe_hashed_struct_table_reset(QbeHashedStructTable *table) {
+    table->iota = 0;
+    table->count = 0;
+    memset(table->data, 0, table->capacity * sizeof(*table->data));
+}
+
+static bool qbe_hashed_struct_table_new(QbeHashedStructTable *table, QbeStruct *st) {
+    if (!table->data) {
+        table->capacity = 128;
+        table->data = calloc(table->capacity, sizeof(QbeHashedStruct));
+    }
+
+    uint64_t hash = qbe_struct_hash(st);
+    size_t   index = hash & (table->capacity - 1);
+
+    while (table->data[index].st) {
+        QbeStruct *existing = table->data[index].st;
+        if (table->data[index].hash == hash && qbe_struct_equal(st, existing)) {
+            st->node.iota = existing->node.iota;
+            return false; // A struct like this already exists
+        }
+
+        index = (index + 1) & (table->capacity - 1);
+    }
+
+    if ((double) (table->count + 1) / table->capacity > 0.8) {
+        qbe_hashed_struct_table_resize(table, table->capacity * 2);
+        return qbe_hashed_struct_table_new(table, st);
+    }
+
+    st->node.iota = table->iota++;
+    table->data[index].st = st;
+    table->data[index].hash = hash;
+    table->count++;
+    return true; // A new struct
+}
+
+// Public API
 QbeSV qbe_sv_from_cstr(const char *cstr) {
     return (QbeSV) {.data = (cstr), .count = strlen(cstr)};
 }
@@ -1010,9 +1125,10 @@ QbeNode *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type) {
 
 QbeField *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type) {
     st->info_ready = false;
+    st->fields_count++;
+
     QbeField *field = (QbeField *) qbe_node_alloc(q, QBE_NODE_FIELD, field_type);
     field->parent = st;
-
     qbe_nodes_push(&st->fields, (QbeNode *) field);
     return field;
 }
@@ -1131,10 +1247,12 @@ Qbe *qbe_new(void) {
 void qbe_free(Qbe *q) {
     arena_free(&q->arena);
     free(q->sb.data);
+    free(q->hashed_struct_table.data);
     free(q);
 }
 
 void qbe_compile(Qbe *q) {
+    qbe_hashed_struct_table_reset(&q->hashed_struct_table);
     q->sb.count = 0;
 
     {
@@ -1151,18 +1269,15 @@ void qbe_compile(Qbe *q) {
                 it->iota = iota++;
             }
         }
-
-        iota = 0;
-
-        for (QbeNode *it = q->structs.head; it; it = it->next) {
-            it->iota = iota++;
-        }
     }
 
     for (QbeNode *it = q->structs.head; it; it = it->next) {
         QbeStruct *st = (QbeStruct *) it;
+        if (!qbe_hashed_struct_table_new(&q->hashed_struct_table, st)) {
+            continue;
+        }
 
-        qbe_sb_fmt(q, "type :.%zu = { ", q->types++);
+        qbe_sb_fmt(q, "type :.%zu = { ", it->iota);
         for (QbeNode *field = st->fields.head; field; field = field->next) {
             qbe_sb_type(q, field->type);
             if (field->next) {

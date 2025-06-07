@@ -7,7 +7,7 @@
 #define len(a) (sizeof(a) / sizeof(*(a)))
 
 static void debug_program(Qbe *q) {
-    if (0) {
+    if (1) {
         QbeSV program = qbe_get_compiled_program(q);
         fwrite(program.data, program.count, 1, stdout);
     }
@@ -137,6 +137,11 @@ static void example_struct(void) {
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
 
+        QbeStruct *Vec3_duplicate = qbe_struct_new(q, false);
+        qbe_struct_add_field(q, Vec3_duplicate, qbe_type_basic(QBE_TYPE_I64));
+        qbe_struct_add_field(q, Vec3_duplicate, qbe_type_basic(QBE_TYPE_I64));
+        qbe_struct_add_field(q, Vec3_duplicate, qbe_type_basic(QBE_TYPE_I64));
+
         QbeNode *v = qbe_fn_add_var(q, main, qbe_type_struct(Vec3));
         QbeNode *newVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("newVec3"), qbe_type_basic(QBE_TYPE_PTR));
         QbeNode *printVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("printVec3"), qbe_type_basic(QBE_TYPE_PTR));
@@ -148,7 +153,7 @@ static void example_struct(void) {
         qbe_build_store(q, main, v, (QbeNode *) newVec3_call);
 
         QbeCall *printVec3_call = qbe_build_call(q, main, printVec3, qbe_type_basic(QBE_TYPE_I0));
-        qbe_call_add_arg(q, printVec3_call, qbe_build_load(q, main, v, qbe_type_struct(Vec3)));
+        qbe_call_add_arg(q, printVec3_call, qbe_build_load(q, main, v, qbe_type_struct(Vec3_duplicate)));
 
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
@@ -264,5 +269,5 @@ static void example_phi(void) {
 }
 
 int main(void) {
-    example_while();
+    example_struct();
 }
