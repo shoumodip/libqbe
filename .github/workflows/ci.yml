@@ -7,20 +7,32 @@ permissions:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        arch: [x86_64, arm64]
+        include:
+          - os: macos
+            arch: x86_64
+            runner: macos-13
+          - os: macos
+            arch: arm64
+            runner: macos-latest
+          - os: ubuntu
+            arch: x86_64
+            runner: ubuntu-latest
+          - os: ubuntu
+            arch: arm64
+            runner: ubuntu-latest
+
+    runs-on: ${{ matrix.runner }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Show info
         run: |
           echo "OS: ${{ matrix.os }}"
           echo "Arch: ${{ matrix.arch }}"
+          echo "Runner: ${{ matrix.runner }}"
           uname -m
 
       - name: Build
