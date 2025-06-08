@@ -594,43 +594,75 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
             break;
 
         case QBE_BINARY_SGT:
-            qbe_sb_fmt(q, "csgt");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "cgt");
+            } else {
+                qbe_sb_fmt(q, "csgt");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_UGT:
-            qbe_sb_fmt(q, "cugt");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "cgt");
+            } else {
+                qbe_sb_fmt(q, "cugt");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_SGE:
-            qbe_sb_fmt(q, "csge");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "cge");
+            } else {
+                qbe_sb_fmt(q, "csge");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_UGE:
-            qbe_sb_fmt(q, "cuge");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "cge");
+            } else {
+                qbe_sb_fmt(q, "cuge");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_SLT:
-            qbe_sb_fmt(q, "cslt");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "clt");
+            } else {
+                qbe_sb_fmt(q, "cslt");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_ULT:
-            qbe_sb_fmt(q, "cult");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "clt");
+            } else {
+                qbe_sb_fmt(q, "cult");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_SLE:
-            qbe_sb_fmt(q, "csle");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "cle");
+            } else {
+                qbe_sb_fmt(q, "csle");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_ULE:
-            qbe_sb_fmt(q, "cule");
-            qbe_sb_type_ssa(q, binary->lhs->type);
+            if (qbe_type_kind_is_float(binary->lhs->type.kind)) {
+                qbe_sb_fmt(q, "cle");
+            } else {
+                qbe_sb_fmt(q, "cule");
+                qbe_sb_type_ssa(q, binary->lhs->type);
+            }
             break;
 
         case QBE_BINARY_EQ:
