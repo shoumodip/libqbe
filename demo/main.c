@@ -10,7 +10,7 @@ static void example_if(void) {
 
     {
         QbeFn   *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
-        QbeNode *puts = qbe_atom_symbol(q, qbe_sv_from_cstr("puts"), qbe_type_basic(QBE_TYPE_PTR));
+        QbeNode *puts = qbe_atom_symbol(q, qbe_sv_from_cstr("puts"), qbe_type_basic(QBE_TYPE_I64));
 
         QbeBlock *then_block = qbe_block_new(q);
         QbeBlock *else_block = qbe_block_new(q);
@@ -70,8 +70,8 @@ static void example_struct(void) {
         qbe_struct_add_field(q, Vec3_duplicate, qbe_type_basic(QBE_TYPE_I64));
 
         QbeNode *v = qbe_fn_add_var(q, main, qbe_type_struct(Vec3));
-        QbeNode *newVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("newVec3"), qbe_type_basic(QBE_TYPE_PTR));
-        QbeNode *printVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("printVec3"), qbe_type_basic(QBE_TYPE_PTR));
+        QbeNode *newVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("newVec3"), qbe_type_basic(QBE_TYPE_I64));
+        QbeNode *printVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("printVec3"), qbe_type_basic(QBE_TYPE_I64));
 
         QbeCall *newVec3_call = qbe_build_call(q, main, newVec3, qbe_type_struct(Vec3));
         qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 69));
@@ -128,7 +128,7 @@ static void example_float(void) {
         QbeNode *x = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_F32));
         qbe_build_store(q, main, x, qbe_atom_float(q, QBE_TYPE_F32, 420.69));
 
-        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_PTR));
+        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
         QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%g\n")));
         qbe_call_add_arg(
@@ -181,7 +181,7 @@ static void example_phi(void) {
         };
 
         QbeNode *x = qbe_build_phi(q, main, phi_is_true, phi_is_false);
-        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_PTR));
+        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
 
         QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
@@ -230,7 +230,7 @@ static void example_while_with_debug(void) {
         qbe_build_block(q, main, body_block);
         qbe_build_debug_line(q, main, 7);
 
-        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_PTR));
+        QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
         QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
         qbe_call_add_arg(q, call, qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)));

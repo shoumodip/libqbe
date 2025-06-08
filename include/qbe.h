@@ -49,7 +49,6 @@ typedef enum {
     QBE_TYPE_I64,
     QBE_TYPE_F32,
     QBE_TYPE_F64,
-    QBE_TYPE_PTR,
     QBE_TYPE_STRUCT,
     QBE_COUNT_TYPES
 } QbeTypeKind;

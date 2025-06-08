@@ -242,7 +242,7 @@ static bool qbe_type_kind_is_float(QbeTypeKind k) {
     return k == QBE_TYPE_F32 || k == QBE_TYPE_F64;
 }
 
-static_assert(QBE_COUNT_TYPES == 9, "");
+static_assert(QBE_COUNT_TYPES == 8, "");
 static QbeTypeInfo qbe_type_info(QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -257,7 +257,6 @@ static QbeTypeInfo qbe_type_info(QbeType type) {
 
     case QBE_TYPE_I64:
     case QBE_TYPE_F64:
-    case QBE_TYPE_PTR:
         return (QbeTypeInfo) {.size = 8, .align = 8};
 
     case QBE_TYPE_STRUCT:
@@ -351,7 +350,7 @@ __attribute__((format(printf, 2, 3))) static void qbe_sb_fmt(Qbe *q, const char 
     va_end(args);
 }
 
-static_assert(QBE_COUNT_TYPES == 9, "");
+static_assert(QBE_COUNT_TYPES == 8, "");
 static void qbe_sb_type(Qbe *q, QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -378,10 +377,6 @@ static void qbe_sb_type(Qbe *q, QbeType type) {
         qbe_sb_fmt(q, "d");
         break;
 
-    case QBE_TYPE_PTR:
-        qbe_sb_fmt(q, "l");
-        break;
-
     case QBE_TYPE_STRUCT:
         qbe_sb_fmt(q, ":.%zu", type.spec->node.iota);
         break;
@@ -391,7 +386,7 @@ static void qbe_sb_type(Qbe *q, QbeType type) {
     }
 }
 
-static_assert(QBE_COUNT_TYPES == 9, "");
+static_assert(QBE_COUNT_TYPES == 8, "");
 static void qbe_sb_type_ssa(Qbe *q, QbeType type) {
     switch (type.kind) {
     case QBE_TYPE_I8:
@@ -410,10 +405,6 @@ static void qbe_sb_type_ssa(Qbe *q, QbeType type) {
 
     case QBE_TYPE_F64:
         qbe_sb_fmt(q, "d");
-        break;
-
-    case QBE_TYPE_PTR:
-        qbe_sb_fmt(q, "l");
         break;
 
     case QBE_TYPE_STRUCT:
@@ -1063,7 +1054,7 @@ QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type) {
 }
 
 QbeFn *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type) {
-    QbeFn *fn = (QbeFn *) qbe_node_alloc(q, QBE_NODE_FN, qbe_type_basic(QBE_TYPE_PTR));
+    QbeFn *fn = (QbeFn *) qbe_node_alloc(q, QBE_NODE_FN, qbe_type_basic(QBE_TYPE_I64));
     fn->node.sv = name;
     fn->return_type = return_type;
     qbe_nodes_push(&q->fns, (QbeNode *) fn);
@@ -1071,7 +1062,7 @@ QbeFn *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type) {
 }
 
 QbeNode *qbe_var_new(Qbe *q, QbeSV name, QbeType type) {
-    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_PTR));
+    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_I64));
     var->node.sv = name;
     var->type = type;
     qbe_nodes_push(&q->vars, (QbeNode *) var);
@@ -1079,10 +1070,10 @@ QbeNode *qbe_var_new(Qbe *q, QbeSV name, QbeType type) {
 }
 
 QbeNode *qbe_str_new(Qbe *q, QbeSV sv) {
-    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_PTR));
+    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_I64));
     var->node.ssa = QBE_SSA_GLOBAL;
     var->str = sv;
-    var->type = qbe_type_basic(QBE_TYPE_PTR);
+    var->type = qbe_type_basic(QBE_TYPE_I64);
     qbe_nodes_push(&q->vars, (QbeNode *) var);
     return (QbeNode *) var;
 }
@@ -1113,7 +1104,7 @@ QbeNode *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type) {
 }
 
 QbeNode *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type) {
-    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_PTR));
+    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_I64));
     var->type = var_type;
     var->local = true;
     qbe_nodes_push(&fn->vars, (QbeNode *) var);
@@ -1175,7 +1166,6 @@ QbeNode *qbe_build_cast(Qbe *q, QbeFn *fn, QbeNode *value, QbeTypeKind type_kind
             [QBE_TYPE_I16] = 16,
             [QBE_TYPE_I32] = 32,
             [QBE_TYPE_I64] = 64,
-            [QBE_TYPE_PTR] = 64,
         };
 
         size_t from_size = sizes[value->type.kind];
