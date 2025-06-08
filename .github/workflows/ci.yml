@@ -17,8 +17,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Show info
+        run: |
+          echo "OS: ${{ matrix.os }}"
+          echo "Arch: ${{ matrix.arch }}"
+          uname -m
+
       - name: Build
-        run: make
+        run: make -j$(nproc)
 
       - name: Test demo
         run: |
