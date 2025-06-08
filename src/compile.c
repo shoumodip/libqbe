@@ -138,18 +138,24 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
     }
 
     if (target == QBE_TARGET_DEFAULT) {
-#if defined(__APPLE__) && defined(__x86_64__)
+#if defined(_WIN32) || defined(_WIN64)
+#    error "Unsupported architecture"
+#elif defined(__APPLE__)
+#    if defined(__x86_64__) || defined(_M_X64)
         target = QBE_TARGET_X86_64_MACOS;
-#elif defined(__APPLE__) && defined(__aarch64__)
+#    elif defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
         target = QBE_TARGET_ARM64_MACOS;
-#elif defined(__x86_64__)
+#    else
+#        error "Unsupported architecture"
+#    endif
+#elif defined(__x86_64__) || defined(_M_X64)
         target = QBE_TARGET_X86_64_LINUX;
-#elif defined(__aarch64__)
+#elif defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
         target = QBE_TARGET_ARM64_LINUX;
 #elif defined(__riscv) && __riscv_xlen == 64
         target = QBE_TARGET_RV64_LINUX;
 #else
-#    error "Unknown or unsupported architecture"
+#    error "Unsupported architecture"
 #endif
     }
 
