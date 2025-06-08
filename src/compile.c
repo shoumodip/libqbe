@@ -165,22 +165,18 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
 
     switch (target) {
     case QBE_TARGET_X86_64_LINUX:
-        fprintf(stderr, "QBE: Selected platform x86_64 Linux\n");
         qbe_T = qbe_T_amd64_sysv;
         break;
 
     case QBE_TARGET_X86_64_MACOS:
-        fprintf(stderr, "QBE: Selected platform x86_64 macOS\n");
         qbe_T = qbe_T_amd64_apple;
         break;
 
     case QBE_TARGET_ARM64_LINUX:
-        fprintf(stderr, "QBE: Selected platform ARM64 Linux\n");
         qbe_T = qbe_T_arm64;
         break;
 
     case QBE_TARGET_ARM64_MACOS:
-        fprintf(stderr, "QBE: Selected platform ARM64 macOS\n");
         qbe_T = qbe_T_arm64_apple;
         break;
 
