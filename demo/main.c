@@ -125,22 +125,22 @@ static void example_float(void) {
     {
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
 
-        QbeNode *x = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_F32));
-        qbe_build_store(q, main, x, qbe_atom_float(q, QBE_TYPE_F32, 420.69));
+        QbeNode *x = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_F64));
+        qbe_build_store(q, main, x, qbe_atom_float(q, QBE_TYPE_F64, 420.69));
 
         QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
         QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
-        qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%g\n")));
-        qbe_call_add_arg(
-            q,
-            call,
-            qbe_build_cast(q, main, qbe_build_load(q, main, x, qbe_type_basic(QBE_TYPE_F32)), QBE_TYPE_F64, true));
+        qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%lf\n")));
+        qbe_call_add_arg(q, call, qbe_build_load(q, main, x, qbe_type_basic(QBE_TYPE_F64)));
 
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
 
     // Compile
     const int result = qbe_generate(q, QBE_TARGET_DEFAULT, "example_float", NULL, 0);
+    QbeSV     program = qbe_get_compiled_program(q);
+    fwrite(program.data, program.count, 1, stdout);
+
     qbe_free(q);
 
     if (result) {
