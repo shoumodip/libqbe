@@ -996,7 +996,7 @@ parsefields(Field *fld, Typ *ty, int t)
 }
 
 static void
-parsetyp()
+parsetyp(void)
 {
 	Typ *ty;
 	int t, al;

@@ -24,7 +24,7 @@ jobs:
 
       - name: Build
         run: |
-          make -j$(nproc)
+          make -j2
 
       - name: Tests
         run: |
