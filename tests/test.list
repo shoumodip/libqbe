@@ -1,3 +1,0 @@
-cc -I../include/ -o hello_world hello_world.c -L../lib -lqbe
-./hello_world
-./hello_world.exe
