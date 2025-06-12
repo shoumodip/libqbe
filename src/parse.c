@@ -173,7 +173,7 @@ qbe_err(char *s, ...)
 }
 
 static void
-lexinit()
+lexinit(void)
 {
 	static int done;
 	int i;
@@ -195,7 +195,7 @@ lexinit()
 }
 
 static int64_t
-getint()
+getint(void)
 {
 	uint64_t n;
 	int c, m;
@@ -216,7 +216,7 @@ getint()
 }
 
 static int
-lex()
+lex(void)
 {
 	static char tok[NString];
 	int c, i, esc;
@@ -326,7 +326,7 @@ Alpha:
 }
 
 static int
-peek()
+peek(void)
 {
 	if (thead == Txxx)
 		thead = lex();
@@ -334,7 +334,7 @@ peek()
 }
 
 static int
-next()
+next(void)
 {
 	int t;
 
@@ -344,7 +344,7 @@ next()
 }
 
 static int
-nextnl()
+nextnl(void)
 {
 	int t;
 
@@ -401,7 +401,7 @@ tmpref(char *v)
 }
 
 static Ref
-parseref()
+parseref(void)
 {
 	Con c;
 
@@ -566,7 +566,7 @@ findblk(char *name)
 }
 
 static void
-closeblk()
+closeblk(void)
 {
 	curb->nins = qbe_curi - qbe_insb;
 	qbe_idup(&curb->ins, qbe_insb, curb->nins);

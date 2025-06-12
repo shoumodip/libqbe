@@ -90,7 +90,7 @@ qbe_alloc(size_t n)
 }
 
 void
-qbe_freeall()
+qbe_freeall(void)
 {
 	void **pp;
 

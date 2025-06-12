@@ -1,7 +1,7 @@
 #include "all.h"
 
 Blk *
-qbe_newblk()
+qbe_newblk(void)
 {
 	static Blk z;
 	Blk *b;
