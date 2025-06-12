@@ -2,16 +2,7 @@
 :b shell 6
 ./main
 :i returncode 0
-:b stdout 186
-data $.0 = align 8 { z 8 }
-data $.1 = align 1 { b "%lf\xa", b 0 }
-export function w $main() {
-@.0
-	stored d_420.690000, $.0
-	%.1 =d loadd $.0
-	%.2 =w call $printf(l $.1, d %.1)
-	ret 0
-}
+:b stdout 0
 
 :b stderr 0
 
@@ -33,8 +24,8 @@ First
 :b shell 15
 ./example_float
 :i returncode 0
-:b stdout 11
-420.690000
+:b stdout 7
+420.69
 
 :b stderr 0
 

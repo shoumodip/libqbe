@@ -102,6 +102,7 @@ typedef struct {
 typedef struct {
     QbeNode  node;
     QbeNode *value;
+    bool     start_variadic;
 } QbeArg;
 
 typedef struct {
@@ -114,6 +115,8 @@ struct QbeCall {
     QbeNode  node;
     QbeNode *fn;
     QbeNodes args;
+
+    bool started_variadic;
 };
 
 typedef struct {
@@ -716,7 +719,9 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         QbeCall *call = (QbeCall *) n;
         qbe_compile_node(q, call->fn);
         for (QbeArg *it = (QbeArg *) call->args.head; it; it = (QbeArg *) it->node.next) {
-            qbe_compile_node(q, it->value);
+            if (!it->start_variadic) {
+                qbe_compile_node(q, it->value);
+            }
         }
         qbe_sb_indent(q);
 
@@ -735,9 +740,15 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
 
         qbe_sb_fmt(q, "(");
         for (QbeArg *it = (QbeArg *) call->args.head; it; it = (QbeArg *) it->node.next) {
-            qbe_sb_type(q, it->value->type);
-            qbe_sb_fmt(q, " ");
-            qbe_sb_node_ssa(q, it->value);
+            if (it->start_variadic) {
+                if (it->node.next) {
+                    qbe_sb_fmt(q, "...");
+                }
+            } else {
+                qbe_sb_type(q, it->value->type);
+                qbe_sb_fmt(q, " ");
+                qbe_sb_node_ssa(q, it->value);
+            }
 
             if (it->node.next) {
                 qbe_sb_fmt(q, ", ");
@@ -1124,6 +1135,15 @@ QbeStruct *qbe_struct_new(Qbe *q, bool packed) {
 void qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg) {
     QbeArg *container = (QbeArg *) qbe_node_alloc(q, QBE_NODE_ARG, arg->type);
     container->value = arg;
+    qbe_nodes_push(&call->args, (QbeNode *) container);
+}
+
+void qbe_call_start_variadic(Qbe *q, QbeCall *call) {
+    assert(!call->started_variadic);
+    call->started_variadic = true;
+
+    QbeArg *container = (QbeArg *) qbe_node_alloc(q, QBE_NODE_ARG, qbe_type_basic(QBE_TYPE_I0));
+    container->start_variadic = true;
     qbe_nodes_push(&call->args, (QbeNode *) container);
 }
 

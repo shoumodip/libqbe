@@ -133,7 +133,9 @@ QbeBlock  *qbe_block_new(Qbe *q);
 QbeStruct *qbe_struct_new(Qbe *q, bool packed);
 
 // Adders
-void      qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
+void qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
+void qbe_call_start_variadic(Qbe *q, QbeCall *call);
+
 QbeNode  *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type);
 QbeNode  *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type);
 QbeField *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type);
