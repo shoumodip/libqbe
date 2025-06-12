@@ -1,0 +1,8 @@
+cc -o main main.c -I../include -L../lib -lqbe
+./main
+./example_if
+./example_cast
+./example_float
+./example_phi
+./example_struct
+./example_while_with_debug

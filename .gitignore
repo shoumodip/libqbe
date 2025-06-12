@@ -2,5 +2,7 @@
 lib/
 demo/*
 !demo/*.c
+!demo/rere.py
+!demo/test.list*
 !demo/Makefile
 !demo/README.md
