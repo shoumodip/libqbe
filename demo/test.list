@@ -1,4 +1,3 @@
-cc -o main main.c -I../include -L../lib -lqbe
 ./main
 ./example_if
 ./example_cast

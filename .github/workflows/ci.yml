@@ -26,4 +26,5 @@ jobs:
       - name: Tests
         run: |
           cd demo
+          make
           ./rere.py replay test.list

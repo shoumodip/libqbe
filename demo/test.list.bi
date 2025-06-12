@@ -1,11 +1,4 @@
-:i count 8
-:b shell 45
-cc -o main main.c -I../include -L../lib -lqbe
-:i returncode 0
-:b stdout 0
-
-:b stderr 0
-
+:i count 7
 :b shell 6
 ./main
 :i returncode 0
