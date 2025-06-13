@@ -872,6 +872,8 @@ typecheck(Fn *fn)
 	}
 }
 
+static uint linenr_for_next_fn; // @shoumodip
+
 static Fn *
 parsefn(Lnk *lnk)
 {
@@ -883,6 +885,13 @@ parsefn(Lnk *lnk)
 	nblk = 0;
 	qbe_curi = qbe_insb;
 	curf = qbe_alloc(sizeof *curf);
+
+	// @shoumodip
+	if (linenr_for_next_fn) {
+		curf->linenr = linenr_for_next_fn;
+		linenr_for_next_fn = 0;
+	}
+
 	curf->ntmp = 0;
 	curf->ncon = 2;
 	curf->tmp = qbe_vnew(curf->ntmp, sizeof curf->tmp[0], PFn);
@@ -1197,6 +1206,13 @@ qbe_parse(FILE *f, char *path, void dbgfile(char *), void data(Dat *), void func
 		case Tdbgfile:
 			expect(Tstr);
 			dbgfile(tokval.str);
+
+			// @shoumodip
+			if (peek() == Tcomma) {
+				next();
+				expect(Tint);
+				linenr_for_next_fn = tokval.num;
+			}
 			break;
 		case Tfunc:
 			func(parsefn(&lnk));

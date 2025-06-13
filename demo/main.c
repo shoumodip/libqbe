@@ -200,7 +200,7 @@ static void example_while_with_debug(void) {
         QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
 
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
-        qbe_fn_set_debug_file(q, main, qbe_sv_from_cstr("while_with_debug.c"));
+        qbe_fn_set_debug(q, main, qbe_sv_from_cstr("while_with_debug.c"), 5);
 
         QbeBlock *cond_block = qbe_block_new(q);
         QbeBlock *body_block = qbe_block_new(q);

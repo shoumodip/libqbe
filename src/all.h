@@ -386,6 +386,7 @@ struct Fn {
 	char vararg;
 	char dynalloc;
 	char name[NString];
+	uint linenr; // @shoumodip
 	Lnk lnk;
 };
 
@@ -567,7 +568,7 @@ void qbe_spill(Fn *);
 void qbe_rega(Fn *);
 
 /* emit.c */
-void qbe_emitfnlnk(char *, Lnk *, FILE *);
+void qbe_emitfnlnk(char *, uint, Lnk *, FILE *); // @shoumodip
 void qbe_emitdat(Dat *, FILE *);
 void qbe_emit_resetall(void);
 void qbe_emitdbgfile(char *, FILE *);

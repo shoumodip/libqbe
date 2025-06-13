@@ -580,7 +580,7 @@ qbe_amd64_emitfn(Fn *fn, FILE *f)
 	int *r, c, o, n, lbl;
 	uint64_t fs;
 
-	qbe_emitfnlnk(fn->name, &fn->lnk, f);
+	qbe_emitfnlnk(fn->name, fn->linenr, &fn->lnk, f); // @shoumodip
 	fputs("\tpushq %rbp\n\tmovq %rsp, %rbp\n", f);
 	fs = framesz(fn);
 	if (fs)

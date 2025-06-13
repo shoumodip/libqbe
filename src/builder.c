@@ -161,6 +161,7 @@ struct QbeFn {
 
     QbeType return_type;
     QbeSV   debug_file;
+    size_t  debug_line;
 };
 
 typedef struct {
@@ -1294,9 +1295,10 @@ void qbe_build_return(Qbe *q, QbeFn *fn, QbeNode *value) {
     ret->value = value;
 }
 
-void qbe_fn_set_debug_file(Qbe *q, QbeFn *fn, QbeSV path) {
+void qbe_fn_set_debug(Qbe *q, QbeFn *fn, QbeSV path, size_t line) {
     assert(!q->compiled && "This QBE context is already compiled");
     fn->debug_file = path;
+    fn->debug_line = line;
 }
 
 void qbe_build_debug_line(Qbe *q, QbeFn *fn, size_t line) {
@@ -1393,7 +1395,7 @@ void qbe_compile(Qbe *q) {
         if (fn->debug_file.data) {
             qbe_sb_fmt(q, "dbgfile ");
             qbe_sb_quote_sv(q, fn->debug_file);
-            qbe_sb_fmt(q, "\n");
+            qbe_sb_fmt(q, ", %zu\n", fn->debug_line);
         }
 
         if (it->sv.data) {

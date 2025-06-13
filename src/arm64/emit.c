@@ -513,7 +513,7 @@ qbe_arm64_emitfn(Fn *fn, FILE *out)
 	e = &(E){.f = out, .fn = fn};
 	if (qbe_T.apple)
 		e->fn->lnk.align = 4;
-	qbe_emitfnlnk(e->fn->name, &e->fn->lnk, e->f);
+	qbe_emitfnlnk(e->fn->name, e->fn->linenr, &e->fn->lnk, e->f); // @shoumodip
 	framelayout(e);
 
 	if (e->fn->vararg && !qbe_T.apple) {

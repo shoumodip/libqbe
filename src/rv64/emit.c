@@ -446,7 +446,7 @@ qbe_rv64_emitfn(Fn *fn, FILE *f)
 	Blk *b, *s;
 	Ins *i;
 
-	qbe_emitfnlnk(fn->name, &fn->lnk, f);
+	qbe_emitfnlnk(fn->name, fn->linenr, &fn->lnk, f); // @shoumodip
 
 	if (fn->vararg) {
 		/* TODO: only need space for registers

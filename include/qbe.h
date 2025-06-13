@@ -164,7 +164,7 @@ void qbe_build_return(Qbe *q, QbeFn *fn, QbeNode *value);
 
 // Debug
 void qbe_build_debug_line(Qbe *q, QbeFn *fn, size_t line);
-void qbe_fn_set_debug_file(Qbe *q, QbeFn *fn, QbeSV path);
+void qbe_fn_set_debug(Qbe *q, QbeFn *fn, QbeSV path, size_t line);
 
 // Primitives
 Qbe *qbe_new(void);

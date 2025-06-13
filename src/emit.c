@@ -6,8 +6,10 @@ enum {
 	SecBss,
 };
 
+static uint curfile; // @shoumodip
+
 void
-qbe_emitlnk(char *n, Lnk *l, int s, FILE *f)
+qbe_emitlnk(char *n, uint linenr, Lnk *l, int s, FILE *f) // @shoumodip
 {
 	static char *sec[2][3] = {
 		[0][SecText] = ".text",
@@ -50,12 +52,17 @@ qbe_emitlnk(char *n, Lnk *l, int s, FILE *f)
 	if (l->export)
 		fprintf(f, ".globl %s%s\n", pfx, n);
 	fprintf(f, "%s%s%s:\n", pfx, n, sfx);
+
+	// @shoumodip
+	if (curfile && linenr) {
+		fprintf(f, "    .loc %u %u\n", curfile, linenr);
+	}
 }
 
 void
-qbe_emitfnlnk(char *n, Lnk *l, FILE *f)
+qbe_emitfnlnk(char *n, uint linenr, Lnk *l, FILE *f) // @shoumodip
 {
-	qbe_emitlnk(n, l, SecText, f);
+	qbe_emitlnk(n, linenr, l, SecText, f); // @shoumodip
 }
 
 void
@@ -76,7 +83,7 @@ qbe_emitdat(Dat *d, FILE *f)
 		break;
 	case DEnd:
 		if (zero != -1) {
-			qbe_emitlnk(d->name, d->lnk, SecBss, f);
+			qbe_emitlnk(d->name, 0, d->lnk, SecBss, f); // @shoumodip
 			fprintf(f, "\t.fill %"PRId64",1,0\n", zero);
 		}
 		break;
@@ -88,7 +95,7 @@ qbe_emitdat(Dat *d, FILE *f)
 		break;
 	default:
 		if (zero != -1) {
-			qbe_emitlnk(d->name, d->lnk, SecData, f);
+			qbe_emitlnk(d->name, 0, d->lnk, SecData, f); // @shoumodip
 			if (zero > 0)
 				fprintf(f, "\t.fill %"PRId64",1,0\n", zero);
 			zero = -1;
@@ -210,7 +217,6 @@ qbe_macho_emitfin(FILE *f)
 
 static uint32_t *file;
 static uint nfile;
-static uint curfile;
 
 // Modification BEGIN
 // Copyright (C) 2025 Shoumodip Kar <shoumodipkar@gmail.com>
