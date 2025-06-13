@@ -1097,6 +1097,10 @@ QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type) {
 }
 
 QbeFn *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type) {
+    if (return_type.kind == QBE_TYPE_STRUCT && return_type.spec->packed) {
+        assert(false && "Returning packed structures directly is not implemented");
+    }
+
     QbeFn *fn = (QbeFn *) qbe_node_alloc(q, QBE_NODE_FN, qbe_type_basic(QBE_TYPE_I64));
     fn->node.sv = name;
     fn->return_type = return_type;
@@ -1133,6 +1137,10 @@ QbeStruct *qbe_struct_new(Qbe *q, bool packed) {
 }
 
 void qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg) {
+    if (arg->type.kind == QBE_TYPE_STRUCT && arg->type.spec->packed) {
+        assert(false && "Passing packed structures directly to a function is not implemented");
+    }
+
     QbeArg *container = (QbeArg *) qbe_node_alloc(q, QBE_NODE_ARG, arg->type);
     container->value = arg;
     qbe_nodes_push(&call->args, (QbeNode *) container);
@@ -1310,15 +1318,24 @@ void qbe_compile(Qbe *q) {
 
     for (QbeNode *it = q->structs.head; it; it = it->next) {
         QbeStruct *st = (QbeStruct *) it;
+        if (!st->info_ready) {
+            // It was never used, just skip it
+            continue;
+        }
+
         if (!qbe_hashed_struct_table_new(&q->hashed_struct_table, st)) {
             continue;
         }
 
-        qbe_sb_fmt(q, "type :.%zu = { ", it->iota);
-        for (QbeNode *field = st->fields.head; field; field = field->next) {
-            qbe_sb_type(q, field->type);
-            if (field->next) {
-                qbe_sb_fmt(q, ", ");
+        qbe_sb_fmt(q, "type :.%zu = align %zu { ", it->iota, st->info.align);
+        if (st->packed) {
+            qbe_sb_fmt(q, "%zu", st->info.size);
+        } else {
+            for (QbeNode *field = st->fields.head; field; field = field->next) {
+                qbe_sb_type(q, field->type);
+                if (field->next) {
+                    qbe_sb_fmt(q, ", ");
+                }
             }
         }
         qbe_sb_fmt(q, " }\n");
