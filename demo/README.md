@@ -2,5 +2,6 @@
 ```console
 $ make
 $ ./main
-$ ./hello
 ```
+
+Then try out the generated `./example_*` demos!
