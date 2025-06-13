@@ -5,3 +5,4 @@
 ./example_phi
 ./example_struct
 ./example_while_with_debug
+./example_array

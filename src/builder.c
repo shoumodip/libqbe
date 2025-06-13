@@ -21,7 +21,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -184,10 +183,11 @@ typedef struct {
 struct QbeField {
     QbeNode node;
 
-    size_t      offset;
-    QbeTypeInfo info;
+    size_t repeat;
+    size_t offset;
 
-    QbeStruct *parent;
+    QbeTypeInfo info;
+    QbeStruct  *parent;
 };
 
 struct QbeStruct {
@@ -935,6 +935,10 @@ static uint64_t qbe_struct_hash(const QbeStruct *st) {
             hash ^= (uint64_t) ((uintptr_t) it->type.spec >> 3);
             hash *= 1099511628211ULL;
         }
+
+        QbeField *field = (QbeField *) it;
+        hash ^= (uint64_t) field->repeat;
+        hash *= 1099511628211ULL;
     }
 
     hash ^= (uint64_t) st->packed;
@@ -953,6 +957,12 @@ static bool qbe_struct_equal(const QbeStruct *a, const QbeStruct *b) {
         }
 
         if (na->type.kind == QBE_TYPE_STRUCT && na->type.spec != nb->type.spec) {
+            return false;
+        }
+
+        QbeField *fa = (QbeField *) na;
+        QbeField *fb = (QbeField *) nb;
+        if (fa->repeat != fb->repeat) {
             return false;
         }
     }
@@ -1048,7 +1058,7 @@ QbeType qbe_type_struct(QbeStruct *spec) {
             }
 
             field->offset = offset;
-            offset += info.size;
+            offset += info.size * field->repeat;
         }
 
         if (!spec->packed) {
@@ -1060,6 +1070,14 @@ QbeType qbe_type_struct(QbeStruct *spec) {
     }
 
     return (QbeType) {.kind = QBE_TYPE_STRUCT, .spec = spec};
+}
+
+QbeType qbe_type_array(Qbe *q, QbeType element_type, size_t count) {
+    assert(count);
+    QbeStruct *st = qbe_struct_new(q, false);
+    QbeField  *element = qbe_struct_add_field(q, st, element_type);
+    element->repeat = count;
+    return qbe_type_struct(st);
 }
 
 QbeType qbe_typeof(QbeNode *node) {
@@ -1177,6 +1195,7 @@ QbeField *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type) {
 
     QbeField *field = (QbeField *) qbe_node_alloc(q, QBE_NODE_FIELD, field_type);
     field->parent = st;
+    field->repeat = 1;
     qbe_nodes_push(&st->fields, (QbeNode *) field);
     return field;
 }
@@ -1331,9 +1350,15 @@ void qbe_compile(Qbe *q) {
         if (st->packed) {
             qbe_sb_fmt(q, "%zu", st->info.size);
         } else {
-            for (QbeNode *field = st->fields.head; field; field = field->next) {
-                qbe_sb_type(q, field->type);
-                if (field->next) {
+            for (QbeNode *f = st->fields.head; f; f = f->next) {
+                qbe_sb_type(q, f->type);
+
+                QbeField *field = (QbeField *) f;
+                if (field->repeat != 1) {
+                    qbe_sb_fmt(q, " %zu", field->repeat);
+                }
+
+                if (f->next) {
                     qbe_sb_fmt(q, ", ");
                 }
             }
@@ -1431,5 +1456,6 @@ bool qbe_has_been_compiled(Qbe *q) {
 }
 
 QbeSV qbe_get_compiled_program(Qbe *q) {
+    assert(q->compiled);
     return (QbeSV) {.data = q->sb.data, .count = q->sb.count};
 }

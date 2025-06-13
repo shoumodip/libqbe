@@ -18,12 +18,7 @@ static void example_if(void) {
 
         // Condition
         QbeNode *cond = qbe_build_binary(
-            q,
-            main,
-            QBE_BINARY_SLT,
-            qbe_type_basic(QBE_TYPE_I32),
-            qbe_atom_int(q, QBE_TYPE_I64, 1),
-            qbe_atom_int(q, QBE_TYPE_I64, 2));
+            q, main, QBE_BINARY_SLT, qbe_type_basic(QBE_TYPE_I32), qbe_atom_int(q, QBE_TYPE_I64, 1), qbe_atom_int(q, QBE_TYPE_I64, 2));
 
         qbe_build_branch(q, main, cond, then_block, else_block);
 
@@ -132,10 +127,7 @@ static void example_float(void) {
         QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%g\n")));
         qbe_call_start_variadic(q, call);
-        qbe_call_add_arg(
-            q,
-            call,
-            qbe_build_cast(q, main, qbe_build_load(q, main, x, qbe_type_basic(QBE_TYPE_F32)), QBE_TYPE_F64, true));
+        qbe_call_add_arg(q, call, qbe_build_cast(q, main, qbe_build_load(q, main, x, qbe_type_basic(QBE_TYPE_F32)), QBE_TYPE_F64, true));
 
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
@@ -269,6 +261,147 @@ static void example_while_with_debug(void) {
     }
 }
 
+static void example_array(void) {
+    Qbe *q = qbe_new();
+
+    {
+        const size_t n = 10;
+
+        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
+        QbeNode *xs = qbe_var_new(q, (QbeSV) {0}, qbe_type_array(q, qbe_type_basic(QBE_TYPE_I64), n));
+
+        QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+
+        {
+            QbeBlock *cond_block = qbe_block_new(q);
+            QbeBlock *body_block = qbe_block_new(q);
+            QbeBlock *over_block = qbe_block_new(q);
+
+            // Condition
+            qbe_build_block(q, main, cond_block);
+
+            QbeNode *cond = qbe_build_binary(
+                q,
+                main,
+                QBE_BINARY_SLT,
+                qbe_type_basic(QBE_TYPE_I32),
+                qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                qbe_atom_int(q, QBE_TYPE_I64, n));
+
+            qbe_build_branch(q, main, cond, body_block, over_block);
+
+            // Body
+            qbe_build_block(q, main, body_block);
+
+            QbeNode *offset = qbe_build_binary(
+                q,
+                main,
+                QBE_BINARY_MUL,
+                qbe_type_basic(QBE_TYPE_I64),
+                qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                qbe_atom_int(q, QBE_TYPE_I64, qbe_sizeof(qbe_type_basic(QBE_TYPE_I64))));
+
+            QbeNode *value = qbe_build_binary(
+                q,
+                main,
+                QBE_BINARY_MUL,
+                qbe_type_basic(QBE_TYPE_I64),
+                qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                qbe_atom_int(q, QBE_TYPE_I64, 2));
+
+            qbe_build_store(q, main, qbe_build_binary(q, main, QBE_BINARY_ADD, qbe_type_basic(QBE_TYPE_I64), xs, offset), value);
+
+            qbe_build_store(
+                q,
+                main,
+                i,
+                qbe_build_binary(
+                    q,
+                    main,
+                    QBE_BINARY_ADD,
+                    qbe_type_basic(QBE_TYPE_I64),
+                    qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                    qbe_atom_int(q, QBE_TYPE_I64, 1)));
+
+            // Loop
+            qbe_build_jump(q, main, cond_block);
+
+            // Over
+            qbe_build_block(q, main, over_block);
+            qbe_build_store(q, main, i, qbe_atom_int(q, QBE_TYPE_I64, 0));
+        }
+
+        {
+            QbeBlock *cond_block = qbe_block_new(q);
+            QbeBlock *body_block = qbe_block_new(q);
+            QbeBlock *over_block = qbe_block_new(q);
+
+            // Condition
+            qbe_build_block(q, main, cond_block);
+
+            QbeNode *cond = qbe_build_binary(
+                q,
+                main,
+                QBE_BINARY_SLT,
+                qbe_type_basic(QBE_TYPE_I32),
+                qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                qbe_atom_int(q, QBE_TYPE_I64, n));
+
+            qbe_build_branch(q, main, cond, body_block, over_block);
+
+            // Body
+            qbe_build_block(q, main, body_block);
+
+            QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
+            QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
+            qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
+            qbe_call_start_variadic(q, call);
+
+            QbeNode *offset = qbe_build_binary(
+                q,
+                main,
+                QBE_BINARY_MUL,
+                qbe_type_basic(QBE_TYPE_I64),
+                qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                qbe_atom_int(q, QBE_TYPE_I64, qbe_sizeof(qbe_type_basic(QBE_TYPE_I64))));
+
+            qbe_call_add_arg(
+                q,
+                call,
+                qbe_build_load(
+                    q, main, qbe_build_binary(q, main, QBE_BINARY_ADD, qbe_type_basic(QBE_TYPE_I64), xs, offset), qbe_type_basic(QBE_TYPE_I64)));
+
+            qbe_build_store(
+                q,
+                main,
+                i,
+                qbe_build_binary(
+                    q,
+                    main,
+                    QBE_BINARY_ADD,
+                    qbe_type_basic(QBE_TYPE_I64),
+                    qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64)),
+                    qbe_atom_int(q, QBE_TYPE_I64, 1)));
+
+            // Loop
+            qbe_build_jump(q, main, cond_block);
+
+            // Over
+            qbe_build_block(q, main, over_block);
+        }
+
+        qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
+    }
+
+    // Compile
+    int result = qbe_generate(q, QBE_TARGET_DEFAULT, "example_array", NULL, 0);
+    qbe_free(q);
+
+    if (result) {
+        fprintf(stderr, "ERROR: Compilation of 'example_array' exited abnormally with code %d\n", result);
+    }
+}
+
 int main(void) {
     example_if();
     example_struct();
@@ -276,4 +409,5 @@ int main(void) {
     example_float();
     example_phi();
     example_while_with_debug();
+    example_array();
 }

@@ -115,6 +115,7 @@ QbeSV qbe_sv_from_cstr(const char *cstr);
 // Types
 QbeType qbe_type_basic(QbeTypeKind kind);
 QbeType qbe_type_struct(QbeStruct *spec);
+QbeType qbe_type_array(Qbe *q, QbeType element_type, size_t count);
 
 QbeType qbe_typeof(QbeNode *node);
 size_t  qbe_sizeof(QbeType type);

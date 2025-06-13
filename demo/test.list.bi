@@ -1,4 +1,4 @@
-:i count 7
+:i count 8
 :b shell 6
 ./main
 :i returncode 0
@@ -59,6 +59,23 @@ First
 7
 8
 9
+
+:b stderr 0
+
+:b shell 15
+./example_array
+:i returncode 0
+:b stdout 25
+0
+2
+4
+6
+8
+10
+12
+14
+16
+18
 
 :b stderr 0
 
