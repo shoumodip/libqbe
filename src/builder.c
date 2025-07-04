@@ -746,7 +746,7 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                     qbe_sb_fmt(q, "...");
                 }
             } else {
-                qbe_sb_type(q, it->value->type);
+                qbe_sb_type_ssa(q, it->value->type);
                 qbe_sb_fmt(q, " ");
                 qbe_sb_node_ssa(q, it->value);
             }
@@ -1418,7 +1418,7 @@ void qbe_compile(Qbe *q) {
         for (QbeNode *arg = fn->args.head; arg; arg = arg->next) {
             arg->iota = q->locals++;
 
-            qbe_sb_type(q, arg->type);
+            qbe_sb_type_ssa(q, arg->type);
             qbe_sb_fmt(q, " ");
             qbe_compile_node(q, arg);
             qbe_sb_node_ssa(q, arg);
