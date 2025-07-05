@@ -249,6 +249,9 @@ static bool qbe_type_kind_is_float(QbeTypeKind k) {
 static_assert(QBE_COUNT_TYPES == 8, "");
 static QbeTypeInfo qbe_type_info(QbeType type) {
     switch (type.kind) {
+    case QBE_TYPE_I0:
+        return (QbeTypeInfo) {.size = 0, .align = 0};
+
     case QBE_TYPE_I8:
         return (QbeTypeInfo) {.size = 1, .align = 1};
 
