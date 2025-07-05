@@ -127,6 +127,7 @@ typedef struct {
 typedef struct {
     QbeNode  node;
     QbeNode *src;
+    bool     is_signed;
 } QbeLoad;
 
 typedef struct {
@@ -825,6 +826,10 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         qbe_sb_fmt(q, " ");
 
         qbe_sb_fmt(q, "load");
+        if (n->type.kind == QBE_TYPE_I8 || n->type.kind == QBE_TYPE_I16) {
+            qbe_sb_fmt(q, "%c", load->is_signed ? 's' : 'u');
+        }
+
         qbe_sb_type(q, n->type);
         qbe_sb_fmt(q, " ");
         qbe_sb_node_ssa(q, load->src);
@@ -1232,9 +1237,10 @@ QbeNode *qbe_build_binary(Qbe *q, QbeFn *fn, QbeBinaryOp op, QbeType type, QbeNo
     return (QbeNode *) binary;
 }
 
-QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type) {
+QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type, bool is_signed) {
     QbeLoad *load = (QbeLoad *) qbe_node_build(q, fn, QBE_NODE_LOAD, type);
     load->src = ptr;
+    load->is_signed = is_signed;
     return (QbeNode *) load;
 }
 
