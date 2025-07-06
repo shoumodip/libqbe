@@ -218,14 +218,31 @@ typedef struct {
 typedef struct {
     uint64_t   hash;
     QbeStruct *st;
-} QbeHashedStruct;
+} QbeStructHashed;
 
 typedef struct {
-    QbeHashedStruct *data;
+    QbeStructHashed *data;
     size_t           count;
     size_t           capacity;
     size_t           iota;
-} QbeHashedStructTable;
+} QbeStructCache;
+
+typedef struct {
+    QbeType type;
+    size_t  count;
+} QbeArrayKey;
+
+typedef struct {
+    QbeArrayKey key;
+    QbeType     type;
+    bool        used;
+} QbeArrayEntry;
+
+typedef struct {
+    QbeArrayEntry *data;
+    size_t         count;
+    size_t         capacity;
+} QbeArrayCache;
 
 struct Qbe {
     Arena arena;
@@ -237,7 +254,8 @@ struct Qbe {
     size_t blocks;
     size_t locals;
 
-    QbeHashedStructTable hashed_struct_table;
+    QbeArrayCache  array_cache;
+    QbeStructCache struct_cache;
 
     bool  compiled;
     QbeSB sb;
@@ -979,11 +997,11 @@ static bool qbe_struct_equal(const QbeStruct *a, const QbeStruct *b) {
     return true;
 }
 
-static void qbe_hashed_struct_table_resize(QbeHashedStructTable *table, size_t new_capacity) {
-    QbeHashedStruct *old_data = table->data;
+static void qbe_struct_cache_resize(QbeStructCache *table, size_t new_capacity) {
+    QbeStructHashed *old_data = table->data;
     size_t           old_capacity = table->capacity;
 
-    table->data = calloc(new_capacity, sizeof(QbeHashedStruct));
+    table->data = calloc(new_capacity, sizeof(QbeStructHashed));
     table->capacity = new_capacity;
     table->count = 0;
 
@@ -1004,10 +1022,10 @@ static void qbe_hashed_struct_table_resize(QbeHashedStructTable *table, size_t n
     free(old_data);
 }
 
-static bool qbe_hashed_struct_table_new(QbeHashedStructTable *table, QbeStruct *st) {
+static bool qbe_struct_cache_new(QbeStructCache *table, QbeStruct *st) {
     if (!table->data) {
         table->capacity = 128;
-        table->data = calloc(table->capacity, sizeof(QbeHashedStruct));
+        table->data = calloc(table->capacity, sizeof(QbeStructHashed));
     }
 
     uint64_t hash = qbe_struct_hash(st);
@@ -1024,8 +1042,8 @@ static bool qbe_hashed_struct_table_new(QbeHashedStructTable *table, QbeStruct *
     }
 
     if ((double) (table->count + 1) / table->capacity > 0.8) {
-        qbe_hashed_struct_table_resize(table, table->capacity * 2);
-        return qbe_hashed_struct_table_new(table, st);
+        qbe_struct_cache_resize(table, table->capacity * 2);
+        return qbe_struct_cache_new(table, st);
     }
 
     st->node.iota = table->iota++;
@@ -1033,6 +1051,80 @@ static bool qbe_hashed_struct_table_new(QbeHashedStructTable *table, QbeStruct *
     table->data[index].hash = hash;
     table->count++;
     return true; // A new struct
+}
+
+static inline size_t qbe_array_hash(QbeArrayKey key) {
+    const size_t h1 = key.type.kind;
+    const size_t h2 = (size_t) key.type.spec;
+    const size_t h3 = key.count;
+    return h1 * 31 + h2 * 17 + h3;
+}
+
+static inline bool qbe_array_key_equal(QbeArrayKey a, QbeArrayKey b) {
+    return a.count == b.count && a.type.kind == b.type.kind && a.type.spec == b.type.spec;
+}
+
+static bool qbe_array_cache_lookup(QbeArrayCache *cache, QbeArrayKey key, QbeType *out) {
+    if (cache->capacity == 0) {
+        return false;
+    }
+
+    size_t mask = cache->capacity - 1;
+    size_t index = qbe_array_hash(key) & mask;
+
+    for (size_t i = 0; i < cache->capacity; ++i) {
+        QbeArrayEntry *entry = &cache->data[index];
+        if (!entry->used) {
+            return false;
+        }
+
+        if (qbe_array_key_equal(entry->key, key)) {
+            *out = entry->type;
+            return true;
+        }
+        index = (index + 1) & mask;
+    }
+
+    return false;
+}
+
+static void qbe_array_cache_insert(QbeArrayCache *cache, QbeArrayKey key, QbeType type) {
+    if ((double) (cache->count + 1) / cache->capacity > 0.8) {
+        size_t         new_capacity = cache->capacity ? cache->capacity * 2 : 128;
+        QbeArrayEntry *new_entries = calloc(new_capacity, sizeof(QbeArrayEntry));
+
+        for (size_t i = 0; i < cache->capacity; ++i) {
+            QbeArrayEntry *old = &cache->data[i];
+            if (!old->used) {
+                continue;
+            }
+
+            size_t mask = new_capacity - 1;
+            size_t index = qbe_array_hash(old->key) & mask;
+            while (new_entries[index].used) {
+                index = (index + 1) & mask;
+            }
+
+            new_entries[index] = *old;
+        }
+
+        free(cache->data);
+        cache->data = new_entries;
+        cache->capacity = new_capacity;
+    }
+
+    size_t mask = cache->capacity - 1;
+    size_t index = qbe_array_hash(key) & mask;
+    while (cache->data[index].used) {
+        index = (index + 1) & mask;
+    }
+
+    cache->data[index] = (QbeArrayEntry) {
+        .key = key,
+        .type = type,
+        .used = true,
+    };
+    cache->count++;
 }
 
 // Public API
@@ -1083,10 +1175,23 @@ QbeType qbe_type_struct(QbeStruct *spec) {
 
 QbeType qbe_type_array(Qbe *q, QbeType element_type, size_t count) {
     assert(count);
+    const QbeArrayKey key = {
+        .type = element_type,
+        .count = count,
+    };
+
+    QbeType cached = {0};
+    if (qbe_array_cache_lookup(&q->array_cache, key, &cached)) {
+        return cached;
+    }
+
     QbeStruct *st = qbe_struct_new(q, false);
     QbeField  *element = qbe_struct_add_field(q, st, element_type);
     element->repeat = count;
-    return qbe_type_struct(st);
+
+    const QbeType array_type = qbe_type_struct(st);
+    qbe_array_cache_insert(&q->array_cache, key, array_type);
+    return array_type;
 }
 
 QbeType qbe_typeof(QbeNode *node) {
@@ -1322,7 +1427,8 @@ Qbe *qbe_new(void) {
 void qbe_free(Qbe *q) {
     arena_free(&q->arena);
     free(q->sb.data);
-    free(q->hashed_struct_table.data);
+    free(q->array_cache.data);
+    free(q->struct_cache.data);
     free(q);
 }
 
@@ -1353,7 +1459,7 @@ void qbe_compile(Qbe *q) {
             continue;
         }
 
-        if (!qbe_hashed_struct_table_new(&q->hashed_struct_table, st)) {
+        if (!qbe_struct_cache_new(&q->struct_cache, st)) {
             continue;
         }
 
