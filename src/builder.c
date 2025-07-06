@@ -857,8 +857,58 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
     case QBE_NODE_STORE: {
         QbeStore *store = (QbeStore *) n;
         qbe_compile_node(q, store->dst);
-        qbe_compile_node(q, store->src);
 
+        if (!store->src) {
+            n->ssa = QBE_SSA_LOCAL;
+
+            const size_t size = qbe_sizeof(n->type);
+            if (size > 128) {
+                qbe_sb_indent(q);
+                qbe_sb_fmt(q, "call $memset(");
+                qbe_sb_type_ssa(q, store->dst->type);
+                qbe_sb_fmt(q, " ");
+                qbe_sb_node_ssa(q, store->dst);
+                qbe_sb_fmt(q, ", w 0, l %zu)\n", size);
+                return;
+            }
+
+            n->iota = q->locals++;
+
+            size_t stored = 0;
+            size_t remaining = size;
+            while (remaining) {
+                qbe_sb_indent(q);
+                qbe_sb_node_ssa(q, n);
+                qbe_sb_fmt(q, " =");
+                qbe_sb_type_ssa(q, store->dst->type);
+                qbe_sb_fmt(q, " add ");
+                qbe_sb_node_ssa(q, stored ? n : store->dst);
+                qbe_sb_fmt(q, ", %zu\n", stored);
+
+                qbe_sb_indent(q);
+                if (remaining >= 8) {
+                    qbe_sb_fmt(q, "storel 0, ");
+                    stored = 8;
+                } else if (remaining >= 4) {
+                    qbe_sb_fmt(q, "storew 0, ");
+                    stored = 4;
+                } else if (remaining >= 2) {
+                    qbe_sb_fmt(q, "storeh 0, ");
+                    stored = 2;
+                } else {
+                    qbe_sb_fmt(q, "storeb 0, ");
+                    stored = 1;
+                }
+                remaining -= stored;
+
+                qbe_sb_node_ssa(q, n);
+                qbe_sb_fmt(q, "\n");
+            }
+
+            return;
+        }
+
+        qbe_compile_node(q, store->src);
         if (store->src->type.kind == QBE_TYPE_STRUCT) {
             n->ssa = QBE_SSA_LOCAL;
 
@@ -1385,6 +1435,11 @@ void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value) {
     QbeStore *store = (QbeStore *) qbe_node_build(q, fn, QBE_NODE_STORE, qbe_type_basic(QBE_TYPE_I0));
     store->dst = ptr;
     store->src = value;
+}
+
+void qbe_build_bzero(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type) {
+    QbeStore *store = (QbeStore *) qbe_node_build(q, fn, QBE_NODE_STORE, type);
+    store->dst = ptr;
 }
 
 void qbe_build_block(Qbe *q, QbeFn *fn, QbeBlock *block) {
