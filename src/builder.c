@@ -872,18 +872,20 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 return;
             }
 
-            n->iota = q->locals++;
-
             size_t stored = 0;
             size_t remaining = size;
             while (remaining) {
-                qbe_sb_indent(q);
-                qbe_sb_node_ssa(q, n);
-                qbe_sb_fmt(q, " =");
-                qbe_sb_type_ssa(q, store->dst->type);
-                qbe_sb_fmt(q, " add ");
-                qbe_sb_node_ssa(q, stored ? n : store->dst);
-                qbe_sb_fmt(q, ", %zu\n", stored);
+                if (remaining != size) {
+                    n->iota = q->locals++;
+
+                    qbe_sb_indent(q);
+                    qbe_sb_node_ssa(q, n);
+                    qbe_sb_fmt(q, " =");
+                    qbe_sb_type_ssa(q, store->dst->type);
+                    qbe_sb_fmt(q, " add ");
+                    qbe_sb_node_ssa(q, n);
+                    qbe_sb_fmt(q, ", %zu\n", stored);
+                }
 
                 qbe_sb_indent(q);
                 if (remaining >= 8) {
@@ -899,10 +901,10 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                     qbe_sb_fmt(q, "storeb 0, ");
                     stored = 1;
                 }
-                remaining -= stored;
 
-                qbe_sb_node_ssa(q, n);
+                qbe_sb_node_ssa(q, remaining == size ? store->dst : n);
                 qbe_sb_fmt(q, "\n");
+                remaining -= stored;
             }
 
             return;
@@ -924,7 +926,6 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         }
 
         n->ssa = QBE_SSA_LOCAL;
-        n->iota = q->locals++;
 
         qbe_sb_indent(q);
         qbe_sb_fmt(q, "store");
