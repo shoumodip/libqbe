@@ -875,8 +875,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
 
             size_t stored = 0;
             size_t remaining = size;
-            while (remaining) {
-                if (remaining != size) {
+            for (size_t i = 0; remaining; i++) {
+                if (i) {
                     n->iota = q->locals++;
 
                     qbe_sb_indent(q);
@@ -884,7 +884,7 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                     qbe_sb_fmt(q, " =");
                     qbe_sb_type_ssa(q, store->dst->type);
                     qbe_sb_fmt(q, " add ");
-                    qbe_sb_node_ssa(q, n);
+                    qbe_sb_node_ssa(q, i == 1 ? store->dst : n);
                     qbe_sb_fmt(q, ", %zu\n", stored);
                 }
 
@@ -902,10 +902,10 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                     qbe_sb_fmt(q, "storeb 0, ");
                     stored = 1;
                 }
-
-                qbe_sb_node_ssa(q, remaining == size ? store->dst : n);
-                qbe_sb_fmt(q, "\n");
                 remaining -= stored;
+
+                qbe_sb_node_ssa(q, i ? n : store->dst);
+                qbe_sb_fmt(q, "\n");
             }
 
             return;
