@@ -202,6 +202,7 @@ struct QbeStruct {
     bool        info_ready;
 
     bool packed;
+    bool compiled;
 };
 
 typedef struct {
@@ -1048,60 +1049,58 @@ static bool qbe_struct_equal(const QbeStruct *a, const QbeStruct *b) {
     return true;
 }
 
-static void qbe_struct_cache_resize(QbeStructCache *table, size_t new_capacity) {
-    QbeStructHashed *old_data = table->data;
-    size_t           old_capacity = table->capacity;
-
-    table->data = calloc(new_capacity, sizeof(QbeStructHashed));
-    table->capacity = new_capacity;
-    table->count = 0;
-
-    for (size_t i = 0; i < old_capacity; ++i) {
-        if (!old_data[i].st) {
-            continue;
-        }
-
-        size_t index = old_data[i].hash & (new_capacity - 1);
-        while (table->data[index].st) {
-            index = (index + 1) & (new_capacity - 1);
-        }
-
-        table->data[index] = old_data[i];
-        table->count++;
-    }
-
-    free(old_data);
-}
-
-static bool qbe_struct_cache_new(QbeStructCache *table, QbeStruct *st) {
-    if (!table->data) {
-        table->capacity = 128;
-        table->data = calloc(table->capacity, sizeof(QbeStructHashed));
+static bool qbe_struct_cache_lookup(QbeStructCache *cache, QbeStruct *st) {
+    if (!cache->data) {
+        return false;
     }
 
     uint64_t hash = qbe_struct_hash(st);
-    size_t   index = hash & (table->capacity - 1);
-
-    while (table->data[index].st) {
-        QbeStruct *existing = table->data[index].st;
-        if (table->data[index].hash == hash && qbe_struct_equal(st, existing)) {
+    size_t   index = hash & (cache->capacity - 1);
+    while (cache->data[index].st) {
+        QbeStruct *existing = cache->data[index].st;
+        if (cache->data[index].hash == hash && qbe_struct_equal(st, existing)) {
             st->node.iota = existing->node.iota;
-            return false; // A struct like this already exists
+            return true;
+        }
+        index = (index + 1) & (cache->capacity - 1);
+    }
+
+    return false;
+}
+
+static void qbe_struct_cache_insert(QbeStructCache *cache, QbeStruct *st) {
+    if (!cache->capacity || (double) (cache->count + 1) / cache->capacity > 0.8) {
+        size_t           new_capacity = cache->capacity ? cache->capacity * 2 : 128;
+        QbeStructHashed *new_data = calloc(new_capacity, sizeof(QbeStructHashed));
+
+        for (size_t i = 0; i < cache->capacity; i++) {
+            if (!cache->data[i].st) {
+                continue;
+            }
+
+            size_t index = cache->data[i].hash & (new_capacity - 1);
+            while (new_data[index].st) {
+                index = (index + 1) & (new_capacity - 1);
+            }
+
+            new_data[index] = cache->data[i];
         }
 
-        index = (index + 1) & (table->capacity - 1);
+        free(cache->data);
+        cache->data = new_data;
+        cache->capacity = new_capacity;
     }
 
-    if ((double) (table->count + 1) / table->capacity > 0.8) {
-        qbe_struct_cache_resize(table, table->capacity * 2);
-        return qbe_struct_cache_new(table, st);
+    uint64_t hash = qbe_struct_hash(st);
+    size_t   index = hash & (cache->capacity - 1);
+    while (cache->data[index].st) {
+        index = (index + 1) & (cache->capacity - 1);
     }
 
-    st->node.iota = table->iota++;
-    table->data[index].st = st;
-    table->data[index].hash = hash;
-    table->count++;
-    return true; // A new struct
+    st->node.iota = cache->iota++;
+    cache->data[index].st = st;
+    cache->data[index].hash = hash;
+    cache->count++;
 }
 
 static inline size_t qbe_array_hash(QbeArrayKey key) {
@@ -1140,7 +1139,7 @@ static bool qbe_array_cache_lookup(QbeArrayCache *cache, QbeArrayKey key, QbeTyp
 }
 
 static void qbe_array_cache_insert(QbeArrayCache *cache, QbeArrayKey key, QbeType type) {
-    if ((double) (cache->count + 1) / cache->capacity > 0.8) {
+    if (!cache->capacity || (double) (cache->count + 1) / cache->capacity > 0.8) {
         size_t         new_capacity = cache->capacity ? cache->capacity * 2 : 128;
         QbeArrayEntry *new_entries = calloc(new_capacity, sizeof(QbeArrayEntry));
 
@@ -1488,6 +1487,45 @@ void qbe_free(Qbe *q) {
     free(q);
 }
 
+static void qbe_compile_struct(Qbe *q, QbeStruct *st) {
+    if (!st->info_ready || st->compiled) {
+        return;
+    }
+    st->compiled = true;
+
+    if (qbe_struct_cache_lookup(&q->struct_cache, st)) {
+        return;
+    }
+
+    if (!st->packed) {
+        for (QbeNode *it = st->fields.head; it; it = it->next) {
+            if (it->type.kind == QBE_TYPE_STRUCT) {
+                qbe_compile_struct(q, it->type.spec);
+            }
+        }
+    }
+
+    qbe_struct_cache_insert(&q->struct_cache, st);
+    qbe_sb_fmt(q, "type :.%zu = align %zu { ", st->node.iota, st->info.align);
+    if (st->packed) {
+        qbe_sb_fmt(q, "%zu", st->info.size);
+    } else {
+        for (QbeNode *it = st->fields.head; it; it = it->next) {
+            qbe_sb_type(q, it->type);
+
+            QbeField *field = (QbeField *) it;
+            if (field->repeat != 1) {
+                qbe_sb_fmt(q, " %zu", field->repeat);
+            }
+
+            if (it->next) {
+                qbe_sb_fmt(q, ", ");
+            }
+        }
+    }
+    qbe_sb_fmt(q, " }\n");
+}
+
 void qbe_compile(Qbe *q) {
     assert(!q->compiled && "This QBE context is already compiled");
     q->compiled = true;
@@ -1509,34 +1547,7 @@ void qbe_compile(Qbe *q) {
     }
 
     for (QbeNode *it = q->structs.head; it; it = it->next) {
-        QbeStruct *st = (QbeStruct *) it;
-        if (!st->info_ready) {
-            // It was never used, just skip it
-            continue;
-        }
-
-        if (!qbe_struct_cache_new(&q->struct_cache, st)) {
-            continue;
-        }
-
-        qbe_sb_fmt(q, "type :.%zu = align %zu { ", it->iota, st->info.align);
-        if (st->packed) {
-            qbe_sb_fmt(q, "%zu", st->info.size);
-        } else {
-            for (QbeNode *f = st->fields.head; f; f = f->next) {
-                qbe_sb_type(q, f->type);
-
-                QbeField *field = (QbeField *) f;
-                if (field->repeat != 1) {
-                    qbe_sb_fmt(q, " %zu", field->repeat);
-                }
-
-                if (f->next) {
-                    qbe_sb_fmt(q, ", ");
-                }
-            }
-        }
-        qbe_sb_fmt(q, " }\n");
+        qbe_compile_struct(q, (QbeStruct *) it);
     }
 
     for (QbeNode *it = q->vars.head; it; it = it->next) {
