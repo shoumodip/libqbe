@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <stdio.h>
 
 #include "qbe.h"
@@ -18,20 +17,27 @@ static void example_if(void) {
 
         // Condition
         QbeNode *cond = qbe_build_binary(
-            q, main, QBE_BINARY_SLT, qbe_type_basic(QBE_TYPE_I32), qbe_atom_int(q, QBE_TYPE_I64, 1), qbe_atom_int(q, QBE_TYPE_I64, 2));
+            q,
+            main,
+            QBE_BINARY_SLT,
+            qbe_type_basic(QBE_TYPE_I32),
+            qbe_atom_int(q, QBE_TYPE_I64, 1),
+            qbe_atom_int(q, QBE_TYPE_I64, 2));
 
         qbe_build_branch(q, main, cond, then_block, else_block);
 
         // Then
         qbe_build_block(q, main, then_block);
-        QbeCall *first = qbe_build_call(q, main, puts, qbe_type_basic(QBE_TYPE_I32));
+        QbeCall *first = qbe_call_new(q, puts, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, first, qbe_str_new(q, qbe_sv_from_cstr("First")));
+        qbe_build_call(q, main, first);
         qbe_build_jump(q, main, merge_block);
 
         // Else
         qbe_build_block(q, main, else_block);
-        QbeCall *second = qbe_build_call(q, main, puts, qbe_type_basic(QBE_TYPE_I32));
+        QbeCall *second = qbe_call_new(q, puts, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, second, qbe_str_new(q, qbe_sv_from_cstr("Second")));
+        qbe_build_call(q, main, second);
         qbe_build_jump(q, main, merge_block);
 
         // Merge
@@ -68,14 +74,16 @@ static void example_struct(void) {
         QbeNode *newVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("newVec3"), qbe_type_basic(QBE_TYPE_I64));
         QbeNode *printVec3 = qbe_atom_symbol(q, qbe_sv_from_cstr("printVec3"), qbe_type_basic(QBE_TYPE_I64));
 
-        QbeCall *newVec3_call = qbe_build_call(q, main, newVec3, qbe_type_struct(Vec3));
+        QbeCall *newVec3_call = qbe_call_new(q, newVec3, qbe_type_struct(Vec3));
         qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 69));
         qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 420));
         qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 1337));
+        qbe_build_call(q, main, newVec3_call);
         qbe_build_store(q, main, v, (QbeNode *) newVec3_call);
 
-        QbeCall *printVec3_call = qbe_build_call(q, main, printVec3, qbe_type_basic(QBE_TYPE_I0));
+        QbeCall *printVec3_call = qbe_call_new(q, printVec3, qbe_type_basic(QBE_TYPE_I0));
         qbe_call_add_arg(q, printVec3_call, qbe_build_load(q, main, v, qbe_type_struct(Vec3_duplicate), true));
+        qbe_build_call(q, main, printVec3_call);
 
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
@@ -124,11 +132,16 @@ static void example_float(void) {
         qbe_build_store(q, main, x, qbe_atom_float(q, QBE_TYPE_F32, 420.69));
 
         QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
-        QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
+        QbeCall *call = qbe_call_new(q, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%g\n")));
         qbe_call_start_variadic(q, call);
-        qbe_call_add_arg(q, call, qbe_build_cast(q, main, qbe_build_load(q, main, x, qbe_type_basic(QBE_TYPE_F32), true), QBE_TYPE_F64, true));
+        qbe_call_add_arg(
+            q,
+            call,
+            qbe_build_cast(
+                q, main, qbe_build_load(q, main, x, qbe_type_basic(QBE_TYPE_F32), true), QBE_TYPE_F64, true));
 
+        qbe_build_call(q, main, call);
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
 
@@ -176,10 +189,11 @@ static void example_phi(void) {
         QbeNode *x = qbe_build_phi(q, main, phi_is_true, phi_is_false);
         QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
 
-        QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
+        QbeCall *call = qbe_call_new(q, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
         qbe_call_start_variadic(q, call);
         qbe_call_add_arg(q, call, x);
+        qbe_build_call(q, main, call);
 
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
@@ -225,10 +239,11 @@ static void example_while_with_debug(void) {
         qbe_build_debug_line(q, main, 7);
 
         QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
-        QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
+        QbeCall *call = qbe_call_new(q, printf, qbe_type_basic(QBE_TYPE_I32));
         qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
         qbe_call_start_variadic(q, call);
         qbe_call_add_arg(q, call, qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64), true));
+        qbe_build_call(q, main, call);
 
         qbe_build_debug_line(q, main, 8);
         qbe_build_store(
@@ -309,7 +324,8 @@ static void example_array(void) {
                 qbe_build_load(q, main, i, qbe_type_basic(QBE_TYPE_I64), true),
                 qbe_atom_int(q, QBE_TYPE_I64, 2));
 
-            qbe_build_store(q, main, qbe_build_binary(q, main, QBE_BINARY_ADD, qbe_type_basic(QBE_TYPE_I64), xs, offset), value);
+            qbe_build_store(
+                q, main, qbe_build_binary(q, main, QBE_BINARY_ADD, qbe_type_basic(QBE_TYPE_I64), xs, offset), value);
 
             qbe_build_store(
                 q,
@@ -353,7 +369,7 @@ static void example_array(void) {
             qbe_build_block(q, main, body_block);
 
             QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
-            QbeCall *call = qbe_build_call(q, main, printf, qbe_type_basic(QBE_TYPE_I32));
+            QbeCall *call = qbe_call_new(q, printf, qbe_type_basic(QBE_TYPE_I32));
             qbe_call_add_arg(q, call, qbe_str_new(q, qbe_sv_from_cstr("%ld\n")));
             qbe_call_start_variadic(q, call);
 
@@ -369,7 +385,13 @@ static void example_array(void) {
                 q,
                 call,
                 qbe_build_load(
-                    q, main, qbe_build_binary(q, main, QBE_BINARY_ADD, qbe_type_basic(QBE_TYPE_I64), xs, offset), qbe_type_basic(QBE_TYPE_I64), true));
+                    q,
+                    main,
+                    qbe_build_binary(q, main, QBE_BINARY_ADD, qbe_type_basic(QBE_TYPE_I64), xs, offset),
+                    qbe_type_basic(QBE_TYPE_I64),
+                    true));
+
+            qbe_build_call(q, main, call);
 
             qbe_build_store(
                 q,

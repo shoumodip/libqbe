@@ -133,17 +133,19 @@ QbeNode   *qbe_str_new(Qbe *q, QbeSV sv);
 QbeBlock  *qbe_block_new(Qbe *q);
 QbeStruct *qbe_struct_new(Qbe *q, bool packed);
 
-// Adders
-void qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
-void qbe_call_start_variadic(Qbe *q, QbeCall *call);
+// Call
+QbeCall *qbe_call_new(Qbe *q, QbeNode *value, QbeType return_type);
+void     qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg);
+void     qbe_call_start_variadic(Qbe *q, QbeCall *call);
+void     qbe_build_call(Qbe *q, QbeFn *fn, QbeCall *call);
 
+// Adders
 QbeNode  *qbe_fn_add_arg(Qbe *q, QbeFn *fn, QbeType arg_type);
 QbeNode  *qbe_fn_add_var(Qbe *q, QbeFn *fn, QbeType var_type);
 QbeField *qbe_struct_add_field(Qbe *q, QbeStruct *st, QbeType field_type);
 
 // Builder
 QbeNode *qbe_build_phi(Qbe *q, QbeFn *fn, QbePhiBranch a, QbePhiBranch b);
-QbeCall *qbe_build_call(Qbe *q, QbeFn *fn, QbeNode *value, QbeType return_type);
 QbeNode *qbe_build_unary(Qbe *q, QbeFn *fn, QbeUnaryOp op, QbeType type, QbeNode *operand);
 QbeNode *qbe_build_binary(Qbe *q, QbeFn *fn, QbeBinaryOp op, QbeType type, QbeNode *lhs, QbeNode *rhs);
 QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type, bool is_signed);

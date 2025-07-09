@@ -1318,6 +1318,17 @@ QbeStruct *qbe_struct_new(Qbe *q, bool packed) {
     return st;
 }
 
+QbeCall *qbe_call_new(Qbe *q, QbeNode *value, QbeType return_type) {
+    QbeCall *call = (QbeCall *) qbe_node_alloc(q, QBE_NODE_CALL, return_type);
+    call->fn = value;
+    return call;
+}
+
+void qbe_build_call(Qbe *q, QbeFn *fn, QbeCall *call) {
+    (void) q; // Symmetry
+    qbe_nodes_push(&fn->body, (QbeNode *) call);
+}
+
 void qbe_call_add_arg(Qbe *q, QbeCall *call, QbeNode *arg) {
     if (arg->type.kind == QBE_TYPE_STRUCT && arg->type.spec->packed) {
         assert(false && "Passing packed structures directly to a function is not implemented");
@@ -1369,12 +1380,6 @@ QbeNode *qbe_build_phi(Qbe *q, QbeFn *fn, QbePhiBranch a, QbePhiBranch b) {
     phi->a = a;
     phi->b = b;
     return (QbeNode *) phi;
-}
-
-QbeCall *qbe_build_call(Qbe *q, QbeFn *fn, QbeNode *value, QbeType return_type) {
-    QbeCall *call = (QbeCall *) qbe_node_build(q, fn, QBE_NODE_CALL, return_type);
-    call->fn = value;
-    return call;
 }
 
 QbeNode *qbe_build_unary(Qbe *q, QbeFn *fn, QbeUnaryOp op, QbeType type, QbeNode *operand) {
