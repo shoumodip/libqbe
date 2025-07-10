@@ -1471,6 +1471,7 @@ void qbe_build_bzero(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type) {
 void qbe_build_block(Qbe *q, QbeFn *fn, QbeBlock *block) {
     assert(!q->compiled && "This QBE context is already compiled");
     qbe_nodes_push(&fn->body, (QbeNode *) block);
+    fn->current_block = block;
 }
 
 void qbe_build_jump(Qbe *q, QbeFn *fn, QbeBlock *block) {
@@ -1617,7 +1618,7 @@ void qbe_compile(Qbe *q) {
         qbe_sb_fmt(q, "function ");
 
         if (fn->return_type.kind != QBE_TYPE_I0) {
-            qbe_sb_type(q, fn->return_type);
+            qbe_sb_type_ssa(q, fn->return_type);
             qbe_sb_fmt(q, " ");
         }
 
