@@ -163,6 +163,8 @@ struct QbeFn {
     QbeType return_type;
     QbeSV   debug_file;
     size_t  debug_line;
+
+    QbeBlock *current_block;
 };
 
 typedef struct {
@@ -1303,6 +1305,8 @@ QbeFn *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type) {
     QbeFn *fn = (QbeFn *) qbe_node_alloc(q, QBE_NODE_FN, qbe_type_basic(QBE_TYPE_I64));
     fn->node.sv = name;
     fn->return_type = return_type;
+    qbe_build_block(q, fn, qbe_block_new(q));
+
     qbe_nodes_push(&q->fns, (QbeNode *) fn);
     return fn;
 }
@@ -1486,6 +1490,10 @@ void qbe_build_return(Qbe *q, QbeFn *fn, QbeNode *value) {
     ret->value = value;
 }
 
+QbeBlock *qbe_fn_get_current_block(QbeFn *fn) {
+    return fn->current_block;
+}
+
 void qbe_fn_set_debug(Qbe *q, QbeFn *fn, QbeSV path, size_t line) {
     assert(!q->compiled && "This QBE context is already compiled");
     fn->debug_file = path;
@@ -1618,7 +1626,7 @@ void qbe_compile(Qbe *q) {
         qbe_sb_fmt(q, "(");
 
         q->locals = 0;
-        q->blocks = 0;
+        q->blocks = 1;
         for (QbeNode *arg = fn->args.head; arg; arg = arg->next) {
             arg->iota = q->locals++;
 
@@ -1631,7 +1639,9 @@ void qbe_compile(Qbe *q) {
             }
         }
 
-        qbe_sb_fmt(q, ") {\n@.%zu\n", q->blocks++);
+        qbe_sb_fmt(q, ") {\n");
+        assert(fn->body.head && fn->body.head->kind == QBE_NODE_BLOCK);
+        qbe_compile_node(q, fn->body.head);
 
         for (QbeNode *var = fn->vars.head; var; var = var->next) {
             var->iota = q->locals++;
@@ -1649,7 +1659,7 @@ void qbe_compile(Qbe *q) {
             qbe_sb_fmt(q, " =l alloc%zu %zu\n", info.align, info.size);
         }
 
-        for (QbeNode *stmt = fn->body.head; stmt; stmt = stmt->next) {
+        for (QbeNode *stmt = fn->body.head->next; stmt; stmt = stmt->next) {
             qbe_compile_node(q, stmt);
         }
 
