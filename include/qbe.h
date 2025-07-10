@@ -59,6 +59,7 @@ typedef struct {
 } QbeType;
 
 typedef enum {
+    QBE_UNARY_NOP,
     QBE_UNARY_NEG,
     QBE_UNARY_BNOT,
     QBE_UNARY_LNOT,
@@ -66,6 +67,7 @@ typedef enum {
 } QbeUnaryOp;
 
 typedef enum {
+    QBE_BINARY_NOP,
     QBE_BINARY_ADD,
     QBE_BINARY_SUB,
     QBE_BINARY_MUL,

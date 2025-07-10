@@ -528,7 +528,12 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         qbe_sb_type_ssa(q, n->type);
         qbe_sb_fmt(q, " ");
 
+        static_assert(QBE_COUNT_UNARYS == 4, "");
         switch (unary->op) {
+        case QBE_UNARY_NOP:
+            assert(false && "NOP");
+            break;
+
         case QBE_UNARY_NEG:
             qbe_sb_fmt(q, "neg ");
             qbe_sb_node_ssa(q, unary->operand);
@@ -567,7 +572,12 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         qbe_sb_type_ssa(q, n->type);
         qbe_sb_fmt(q, " ");
 
+        static_assert(QBE_COUNT_BINARYS == 24, "");
         switch (binary->op) {
+        case QBE_BINARY_NOP:
+            assert(false && "NOP");
+            break;
+
         case QBE_BINARY_ADD:
             qbe_sb_fmt(q, "add");
             break;
