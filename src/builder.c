@@ -131,9 +131,10 @@ typedef struct {
 } QbeLoad;
 
 typedef struct {
-    QbeNode  node;
-    QbeNode *dst;
-    QbeNode *src;
+    QbeNode     node;
+    QbeNode    *dst;
+    QbeNode    *src;
+    const void *data;
 } QbeStore;
 
 typedef struct {
@@ -872,10 +873,63 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
     case QBE_NODE_STORE: {
         QbeStore *store = (QbeStore *) n;
         qbe_compile_node(q, store->dst);
+        n->ssa = QBE_SSA_LOCAL;
+
+        if (store->data) {
+            assert(!store->src);
+
+            const size_t size = qbe_sizeof(n->type);
+
+            size_t stored = 0;
+            size_t remaining = size;
+
+            const int8_t *data = store->data;
+            for (size_t i = 0; remaining; i++) {
+                if (i) {
+                    const size_t prev = n->iota;
+                    n->iota = q->locals++;
+
+                    qbe_sb_indent(q);
+                    qbe_sb_node_ssa(q, n);
+                    qbe_sb_fmt(q, " =");
+                    qbe_sb_type_ssa(q, store->dst->type);
+                    qbe_sb_fmt(q, " add ");
+
+                    if (i == 1) {
+                        qbe_sb_node_ssa(q, store->dst);
+                    } else {
+                        qbe_sb_fmt(q, "%%.%zu", prev);
+                    }
+
+                    qbe_sb_fmt(q, ", %zu\n", stored);
+                }
+
+                qbe_sb_indent(q);
+                if (remaining >= 8) {
+                    qbe_sb_fmt(q, "storel %ld, ", *(int64_t *) data);
+                    stored = 8;
+                } else if (remaining >= 4) {
+                    qbe_sb_fmt(q, "storew %d, ", *(int32_t *) data);
+                    stored = 4;
+                } else if (remaining >= 2) {
+                    qbe_sb_fmt(q, "storeh %d, ", *(int16_t *) data);
+                    stored = 2;
+                } else {
+                    qbe_sb_fmt(q, "storeb %d, ", *(int8_t *) data);
+                    stored = 1;
+                }
+
+                data += stored;
+                remaining -= stored;
+
+                qbe_sb_node_ssa(q, i ? n : store->dst);
+                qbe_sb_fmt(q, "\n");
+            }
+
+            return;
+        }
 
         if (!store->src) {
-            n->ssa = QBE_SSA_LOCAL;
-
             const size_t size = qbe_sizeof(n->type);
             if (size > 128) {
                 qbe_sb_indent(q);
@@ -934,8 +988,6 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
 
         qbe_compile_node(q, store->src);
         if (store->src->type.kind == QBE_TYPE_STRUCT) {
-            n->ssa = QBE_SSA_LOCAL;
-
             qbe_sb_indent(q);
             qbe_sb_fmt(q, "blit ");
             qbe_sb_node_ssa(q, store->src);
@@ -946,8 +998,6 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
             qbe_sb_fmt(q, ", %zu\n", info.size);
             return;
         }
-
-        n->ssa = QBE_SSA_LOCAL;
 
         qbe_sb_indent(q);
         qbe_sb_fmt(q, "store");
@@ -1466,9 +1516,15 @@ void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value) {
     store->src = value;
 }
 
-void qbe_build_bzero(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type) {
+void qbe_build_store_zero(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type) {
     QbeStore *store = (QbeStore *) qbe_node_build(q, fn, QBE_NODE_STORE, type);
     store->dst = ptr;
+}
+
+void qbe_build_store_data(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type, const void *data) {
+    QbeStore *store = (QbeStore *) qbe_node_build(q, fn, QBE_NODE_STORE, type);
+    store->dst = ptr;
+    store->data = data;
 }
 
 void qbe_build_block(Qbe *q, QbeFn *fn, QbeBlock *block) {

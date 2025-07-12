@@ -163,7 +163,9 @@ QbeNode *qbe_build_load(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type, bool is_s
 QbeNode *qbe_build_cast(Qbe *q, QbeFn *fn, QbeNode *value, QbeTypeKind type_kind, bool is_signed);
 
 void qbe_build_store(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeNode *value);
-void qbe_build_bzero(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type);
+void qbe_build_store_zero(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type);
+void qbe_build_store_data(Qbe *q, QbeFn *fn, QbeNode *ptr, QbeType type, const void *data);
+
 void qbe_build_block(Qbe *q, QbeFn *fn, QbeBlock *block);
 void qbe_build_jump(Qbe *q, QbeFn *fn, QbeBlock *block);
 void qbe_build_branch(Qbe *q, QbeFn *fn, QbeNode *cond, QbeBlock *then_block, QbeBlock *else_block);
