@@ -1607,26 +1607,49 @@ void qbe_compile(Qbe *q) {
                 size_t        remaining = info.size;
                 const int8_t *data = var->data;
                 while (remaining) {
+                    if (*data == 0) {
+                        size_t count = 0;
+                        for (size_t i = 0; i < remaining && !data[i]; i++) {
+                            count++;
+                        }
+
+                        if (count >= 8 || remaining < 8) {
+                            qbe_sb_fmt(q, "z %zu", count);
+                            data += count;
+                            remaining -= count;
+
+                            if (remaining) {
+                                qbe_sb_fmt(q, ", ");
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
                     if (remaining >= 8) {
-                        qbe_sb_fmt(q, "l %ld, ", *(int64_t *) data);
+                        qbe_sb_fmt(q, "l %ld", *(int64_t *) data);
                         data += 8;
                         remaining -= 8;
                     } else if (remaining >= 4) {
-                        qbe_sb_fmt(q, "w %d, ", *(int32_t *) data);
+                        qbe_sb_fmt(q, "w %d", *(int32_t *) data);
                         data += 4;
                         remaining -= 4;
                     } else if (remaining >= 2) {
-                        qbe_sb_fmt(q, "h %d, ", *(int16_t *) data);
+                        qbe_sb_fmt(q, "h %d", *(int16_t *) data);
                         data += 2;
                         remaining -= 2;
                     } else if (remaining >= 1) {
-                        qbe_sb_fmt(q, "b %d, ", *data);
+                        qbe_sb_fmt(q, "b %d", *data);
                         data += 1;
                         remaining -= 1;
                     }
+
+                    if (remaining) {
+                        qbe_sb_fmt(q, ", ");
+                    }
                 }
 
-                qbe_sb_fmt(q, "}\n");
+                qbe_sb_fmt(q, " }\n");
             } else {
                 qbe_sb_fmt(q, " = align %zu { z %zu }\n", info.align, info.size);
             }
