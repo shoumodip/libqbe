@@ -128,7 +128,7 @@ static void example_float(void) {
     {
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
 
-        QbeNode *x = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_F32));
+        QbeNode *x = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_F32), NULL);
         qbe_build_store(q, main, x, qbe_atom_float(q, QBE_TYPE_F32, 420.69));
 
         QbeNode *printf = qbe_atom_symbol(q, qbe_sv_from_cstr("printf"), qbe_type_basic(QBE_TYPE_I64));
@@ -211,7 +211,7 @@ static void example_while_with_debug(void) {
     Qbe *q = qbe_new();
 
     {
-        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
+        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64), NULL);
 
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
         qbe_fn_set_debug(q, main, qbe_sv_from_cstr("while_with_debug.c"), 5);
@@ -282,8 +282,8 @@ static void example_array(void) {
     {
         const size_t n = 10;
 
-        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
-        QbeNode *xs = qbe_var_new(q, (QbeSV) {0}, qbe_type_array(q, qbe_type_basic(QBE_TYPE_I64), n));
+        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64), NULL);
+        QbeNode *xs = qbe_var_new(q, (QbeSV) {0}, qbe_type_array(q, qbe_type_basic(QBE_TYPE_I64), n), NULL);
 
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
 

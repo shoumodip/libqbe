@@ -130,10 +130,12 @@ QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type);
 
 // Creators
 QbeFn     *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type);
-QbeNode   *qbe_var_new(Qbe *q, QbeSV name, QbeType type);
 QbeNode   *qbe_str_new(Qbe *q, QbeSV sv);
 QbeBlock  *qbe_block_new(Qbe *q);
 QbeStruct *qbe_struct_new(Qbe *q, bool packed);
+
+// TODO: Instead of an untyped `const void *data`, introduce a schema for describing the constant value of variables
+QbeNode *qbe_var_new(Qbe *q, QbeSV name, QbeType type, const void *data);
 
 // Call
 QbeCall *qbe_call_new(Qbe *q, QbeNode *value, QbeType return_type);

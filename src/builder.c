@@ -173,6 +173,8 @@ typedef struct {
     bool    local;
     QbeSV   str;
     QbeType type;
+
+    const void *data;
 } QbeVar;
 
 struct QbeBlock {
@@ -1311,14 +1313,6 @@ QbeFn *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type) {
     return fn;
 }
 
-QbeNode *qbe_var_new(Qbe *q, QbeSV name, QbeType type) {
-    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_I64));
-    var->node.sv = name;
-    var->type = type;
-    qbe_nodes_push(&q->vars, (QbeNode *) var);
-    return (QbeNode *) var;
-}
-
 QbeNode *qbe_str_new(Qbe *q, QbeSV sv) {
     QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_I64));
     var->node.ssa = QBE_SSA_GLOBAL;
@@ -1337,6 +1331,15 @@ QbeStruct *qbe_struct_new(Qbe *q, bool packed) {
     st->packed = packed;
     qbe_nodes_push(&q->structs, (QbeNode *) st);
     return st;
+}
+
+QbeNode *qbe_var_new(Qbe *q, QbeSV name, QbeType type, const void *data) {
+    QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_I64));
+    var->node.sv = name;
+    var->type = type;
+    var->data = data;
+    qbe_nodes_push(&q->vars, (QbeNode *) var);
+    return (QbeNode *) var;
 }
 
 QbeCall *qbe_call_new(Qbe *q, QbeNode *value, QbeType return_type) {
@@ -1598,7 +1601,35 @@ void qbe_compile(Qbe *q) {
             qbe_sb_fmt(q, ", b 0 }\n");
         } else {
             QbeTypeInfo info = qbe_type_info(var->type);
-            qbe_sb_fmt(q, " = align %zu { z %zu }\n", info.align, info.size);
+            if (var->data) {
+                qbe_sb_fmt(q, " = align %zu { ", info.align);
+
+                size_t        remaining = info.size;
+                const int8_t *data = var->data;
+                while (remaining) {
+                    if (remaining >= 8) {
+                        qbe_sb_fmt(q, "l %ld, ", *(int64_t *) data);
+                        data += 8;
+                        remaining -= 8;
+                    } else if (remaining >= 4) {
+                        qbe_sb_fmt(q, "w %d, ", *(int32_t *) data);
+                        data += 4;
+                        remaining -= 4;
+                    } else if (remaining >= 2) {
+                        qbe_sb_fmt(q, "h %d, ", *(int16_t *) data);
+                        data += 2;
+                        remaining -= 2;
+                    } else if (remaining >= 1) {
+                        qbe_sb_fmt(q, "b %d, ", *data);
+                        data += 1;
+                        remaining -= 1;
+                    }
+                }
+
+                qbe_sb_fmt(q, "}\n");
+            } else {
+                qbe_sb_fmt(q, " = align %zu { z %zu }\n", info.align, info.size);
+            }
         }
     }
 
