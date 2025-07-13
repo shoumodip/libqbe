@@ -182,7 +182,7 @@ void qbe_fn_set_debug(Qbe *q, QbeFn *fn, QbeSV path, size_t line);
 Qbe *qbe_new(void);
 void qbe_free(Qbe *q);
 void qbe_compile(Qbe *q);
-int  qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count);
+int  qbe_generate(Qbe *q, QbeTarget target, const char *output);
 
 bool  qbe_has_been_compiled(Qbe *q);
 QbeSV qbe_get_compiled_program(Qbe *q);

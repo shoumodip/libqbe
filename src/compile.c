@@ -115,24 +115,7 @@ static void dbgfile(char *fn) {
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-
-typedef struct {
-    const char **data;
-    size_t       count;
-    size_t       capacity;
-} Cmd;
-
-void cmd_push(Cmd *c, const char *arg) {
-    if (c->count >= c->capacity) {
-        c->capacity = c->capacity ? c->capacity * 2 : 128;
-        c->data = realloc(c->data, c->capacity * sizeof(*c->data));
-        assert(c->data);
-    }
-
-    c->data[c->count++] = arg;
-}
-
-int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
+int qbe_generate(Qbe *q, QbeTarget target, const char *output) {
     if (!qbe_has_been_compiled(q)) {
         qbe_compile(q);
     }
@@ -204,19 +187,7 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
 
-        Cmd cmd = {0};
-        cmd_push(&cmd, "cc");
-        cmd_push(&cmd, "-o");
-        cmd_push(&cmd, output);
-        cmd_push(&cmd, "-x");
-        cmd_push(&cmd, "assembler");
-        cmd_push(&cmd, "-");
-        for (size_t i = 0; i < flags_count; i++) {
-            cmd_push(&cmd, flags[i]);
-        }
-        cmd_push(&cmd, NULL);
-
-        execvp(*cmd.data, (char *const *) cmd.data);
+        execlp("as", "as", "-o", output, "-", NULL);
         exit(127);
     }
 
