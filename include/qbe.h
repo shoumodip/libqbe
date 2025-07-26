@@ -111,6 +111,8 @@ typedef enum {
     QBE_TARGET_RV64_LINUX
 } QbeTarget;
 
+QbeTarget qbe_target_default(void);
+
 // String View
 QbeSV qbe_sv_from_cstr(const char *cstr);
 
@@ -126,7 +128,8 @@ size_t  qbe_offsetof(QbeField *field);
 // Atoms
 QbeNode *qbe_atom_int(Qbe *q, QbeTypeKind kind, size_t n);
 QbeNode *qbe_atom_float(Qbe *q, QbeTypeKind kind, double n);
-QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type);
+QbeNode *qbe_atom_extern(Qbe *q, QbeSV name, QbeType type);
+QbeNode *qbe_atom_extern_fn(Qbe *q, QbeSV name); // A wrapper around qbe_atom_extern
 
 // Creators
 QbeFn     *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type);

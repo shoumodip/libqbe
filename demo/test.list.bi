@@ -1,4 +1,4 @@
-:i count 8
+:i count 9
 :b shell 6
 ./main
 :i returncode 0
@@ -78,4 +78,12 @@ First
 18
 
 :b stderr 0
+
+:b shell 20
+./example_extern_var
+:i returncode 0
+:b stdout 0
+
+:b stderr 14
+Hello, world!
 
