@@ -35,7 +35,8 @@ typedef enum {
     QBE_SSA_INT,
     QBE_SSA_FLOAT,
     QBE_SSA_LOCAL,
-    QBE_SSA_GLOBAL
+    QBE_SSA_GLOBAL,
+    QBE_SSA_EXTERN
 } QbeSSA;
 
 typedef enum {
@@ -449,7 +450,7 @@ static void qbe_sb_type_ssa(Qbe *q, QbeType type) {
 }
 
 static void qbe_sb_node_ssa(Qbe *q, QbeNode *node) {
-    char prefix = 0;
+    const char *prefix = NULL;
     switch (node->ssa) {
     case QBE_SSA_INT:
         qbe_sb_fmt(q, "%zu", node->iota);
@@ -464,11 +465,15 @@ static void qbe_sb_node_ssa(Qbe *q, QbeNode *node) {
         return;
 
     case QBE_SSA_LOCAL:
-        prefix = '%';
+        prefix = "%";
         break;
 
     case QBE_SSA_GLOBAL:
-        prefix = '$';
+        prefix = "$";
+        break;
+
+    case QBE_SSA_EXTERN:
+        prefix = "$$";
         break;
 
     default:
@@ -476,9 +481,9 @@ static void qbe_sb_node_ssa(Qbe *q, QbeNode *node) {
     }
 
     if (node->sv.data) {
-        qbe_sb_fmt(q, "%c" QbeSVFmt, prefix, QbeSVArg(node->sv));
+        qbe_sb_fmt(q, "%s" QbeSVFmt, prefix, QbeSVArg(node->sv));
     } else {
-        qbe_sb_fmt(q, "%c.%zu", prefix, node->iota);
+        qbe_sb_fmt(q, "%s.%zu", prefix, node->iota);
     }
 }
 
@@ -1342,11 +1347,15 @@ QbeNode *qbe_atom_float(Qbe *q, QbeTypeKind kind, double n) {
     return atom;
 }
 
-QbeNode *qbe_atom_symbol(Qbe *q, QbeSV name, QbeType type) {
+QbeNode *qbe_atom_extern(Qbe *q, QbeSV name, QbeType type) {
     QbeNode *atom = qbe_node_alloc(q, QBE_NODE_ATOM, type);
-    atom->ssa = QBE_SSA_GLOBAL;
+    atom->ssa = QBE_SSA_EXTERN;
     atom->sv = name;
     return atom;
+}
+
+QbeNode *qbe_atom_extern_fn(Qbe *q, QbeSV name) {
+    return qbe_atom_extern(q, name, qbe_type_basic(QBE_TYPE_I64));
 }
 
 QbeFn *qbe_fn_new(Qbe *q, QbeSV name, QbeType return_type) {
@@ -1783,6 +1792,9 @@ bool qbe_has_been_compiled(Qbe *q) {
 }
 
 QbeSV qbe_get_compiled_program(Qbe *q) {
-    assert(q->compiled);
+    if (!q->compiled) {
+        qbe_compile(q);
+    }
+
     return (QbeSV) {.data = q->sb.data, .count = q->sb.count};
 }

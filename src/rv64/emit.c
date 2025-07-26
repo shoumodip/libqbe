@@ -128,11 +128,17 @@ slot(Ref r, Fn *fn)
 		return -4 * (fn->slot - s);
 }
 
+static char *qbe_str_skip_dollar(uint32_t n) {
+	char *l = qbe_str(n);
+	if (*l == '$') l++;
+	return l;
+}
+
 static void
 emitaddr(Con *c, FILE *f)
 {
 	assert(c->sym.type == SGlo);
-	fputs(qbe_str(c->sym.id), f);
+	fputs(qbe_str_skip_dollar(c->sym.id), f);
 	if (c->bits.i)
 		fprintf(f, "+%"PRIi64, c->bits.i);
 }
@@ -237,11 +243,11 @@ loadaddr(Con *c, char *rn, FILE *f)
 		else
 			off[0] = 0;
 		fprintf(f, "\tlui %s, %%tprel_hi(%s)%s\n",
-			rn, qbe_str(c->sym.id), off);
+			rn, qbe_str_skip_dollar(c->sym.id), off);
 		fprintf(f, "\tadd %s, %s, tp, %%tprel_add(%s)%s\n",
-			rn, rn, qbe_str(c->sym.id), off);
+			rn, rn, qbe_str_skip_dollar(c->sym.id), off);
 		fprintf(f, "\taddi %s, %s, %%tprel_lo(%s)%s\n",
-			rn, rn, qbe_str(c->sym.id), off);
+			rn, rn, qbe_str_skip_dollar(c->sym.id), off);
 	} else {
 		fprintf(f, "\tla %s, ", rn);
 		emitaddr(c, f);
@@ -390,7 +396,7 @@ emitins(Ins *i, Fn *fn, FILE *f)
 			|| con->sym.type != SGlo
 			|| con->bits.i)
 				goto Invalid;
-			fprintf(f, "\tcall %s\n", qbe_str(con->sym.id));
+			fprintf(f, "\tcall %s\n", qbe_str_skip_dollar(con->sym.id));
 			break;
 		case RTmp:
 			emitf("jalr %0", i, fn, f);

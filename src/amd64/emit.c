@@ -165,6 +165,7 @@ emitcon(Con *con, FILE *f)
 	switch (con->type) {
 	case CAddr:
 		l = qbe_str(con->sym.id);
+		if (*l == '$') l++;
 		p = l[0] == '"' ? "" : qbe_T.assym;
 		if (con->sym.type == SThr) {
 			if (qbe_T.apple)
@@ -501,6 +502,7 @@ emitins(Ins i, Fn *fn, FILE *f)
 			assert(qbe_isreg(i.to));
 			con = &fn->con[i.arg[0].val];
 			sym = qbe_str(con->sym.id);
+			if (*sym == '$') sym++;
 			emitf("movq %%fs:0, %L=", &i, fn, f);
 			fprintf(f, "\tleaq %s%s@tpoff",
 				sym[0] == '"' ? "" : qbe_T.assym, sym);

@@ -249,16 +249,23 @@ loadaddr(Con *c, char *rn, E *e)
 {
 	char *p, *l, *s;
 
+	l = qbe_str(c->sym.id);
 	switch (c->sym.type) {
 	default:
 		die("unreachable");
 	case SGlo:
-		if (qbe_T.apple)
-			s = "\tadrp\tR, S@pageO\n"
-			    "\tadd\tR, R, S@pageoffO\n";
-		else
+		if (qbe_T.apple) {
+			if (*l == '$') {
+				s = "\tadrp\tR, S@gotpageO\n"
+					"\tldr\tR, [R, S@gotpageoffO]\n";
+			} else {
+				s = "\tadrp\tR, S@pageO\n"
+					"\tadd\tR, R, S@pageoffO\n";
+			}
+		} else {
 			s = "\tadrp\tR, SO\n"
-			    "\tadd\tR, R, #:lo12:SO\n";
+				"\tadd\tR, R, #:lo12:SO\n";
+		}
 		break;
 	case SThr:
 		if (qbe_T.apple)
@@ -271,7 +278,7 @@ loadaddr(Con *c, char *rn, E *e)
 		break;
 	}
 
-	l = qbe_str(c->sym.id);
+	if (*l == '$') l++;
 	p = l[0] == '"' ? "" : qbe_T.assym;
 	for (; *s; s++)
 		switch (*s) {
@@ -438,6 +445,7 @@ emitins(Ins *i, E *e)
 		|| c->bits.i)
 			die("invalid call argument");
 		l = qbe_str(c->sym.id);
+		if (*l == '$') l++;
 		p = l[0] == '"' ? "" : qbe_T.assym;
 		fprintf(e->f, "\tbl\t%s%s\n", p, l);
 		break;

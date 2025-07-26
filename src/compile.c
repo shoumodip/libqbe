@@ -115,35 +115,39 @@ static void dbgfile(char *fn) {
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-int qbe_generate(Qbe *q, QbeTarget target, const char *output) {
-    if (!qbe_has_been_compiled(q)) {
-        qbe_compile(q);
-    }
-
-    if (target == QBE_TARGET_DEFAULT) {
+QbeTarget qbe_target_default(void) {
 #if defined(_WIN32) || defined(_WIN64)
 #    error "Unsupported platform"
 #elif defined(__APPLE__)
 #    if defined(__x86_64__)
-        target = QBE_TARGET_X86_64_MACOS;
+    return QBE_TARGET_X86_64_MACOS;
 #    elif defined(__arm64__) || defined(__aarch64__)
-        target = QBE_TARGET_ARM64_MACOS;
+    return QBE_TARGET_ARM64_MACOS;
 #    else
 #        error "Unsupported Apple architecture"
 #    endif
 #elif defined(__linux__)
 #    if defined(__x86_64__)
-        target = QBE_TARGET_X86_64_LINUX;
+    return QBE_TARGET_X86_64_LINUX;
 #    elif defined(__arm64__) || defined(__aarch64__)
-        target = QBE_TARGET_ARM64_LINUX;
+    return QBE_TARGET_ARM64_LINUX;
 #    elif defined(__riscv) && __riscv_xlen == 64
-        target = QBE_TARGET_RV64_LINUX;
+    return QBE_TARGET_RV64_LINUX;
 #    else
 #        error "Unsupported Linux architecture"
 #    endif
 #else
 #    error "Unsupported platform"
 #endif
+}
+
+int qbe_generate(Qbe *q, QbeTarget target, const char *output) {
+    if (!qbe_has_been_compiled(q)) {
+        qbe_compile(q);
+    }
+
+    if (target == QBE_TARGET_DEFAULT) {
+        target = qbe_target_default();
     }
 
     switch (target) {

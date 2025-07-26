@@ -302,7 +302,7 @@ lex(void)
 		}
 	}
 Alpha:
-	if (!isalpha(c) && c != '.' && c != '_')
+	if (!isalpha(c) && c != '.' && c != '_' && c != '$')
 		qbe_err("invalid character %c (%d)", c, c);
 	i = 0;
 	do {
