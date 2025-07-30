@@ -191,6 +191,9 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output) {
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
 
+        freopen("/dev/null", "w", stdout);
+        freopen("/dev/null", "w", stderr);
+
         execlp("as", "as", "-o", output, "-", NULL);
         exit(127);
     }
@@ -215,6 +218,7 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output) {
     qbe_util_resetall();
     qbe_emit_resetall();
 
+    signal(SIGPIPE, SIG_IGN);
     fclose(qbe_input);
     fclose(qbe_output);
 
