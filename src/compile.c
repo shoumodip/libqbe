@@ -207,9 +207,6 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
 
-        freopen("/dev/null", "w", stdout);
-        freopen("/dev/null", "w", stderr);
-
         Cmd cmd = {0};
         cmd_push(&cmd, "cc");
         cmd_push(&cmd, "-o");
