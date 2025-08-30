@@ -141,7 +141,23 @@ QbeTarget qbe_target_default(void) {
 #endif
 }
 
-int qbe_generate(Qbe *q, QbeTarget target, const char *output) {
+typedef struct {
+    const char **data;
+    size_t       count;
+    size_t       capacity;
+} Cmd;
+
+void cmd_push(Cmd *c, const char *arg) {
+    if (c->count >= c->capacity) {
+        c->capacity = c->capacity ? c->capacity * 2 : 128;
+        c->data = realloc(c->data, c->capacity * sizeof(*c->data));
+        assert(c->data);
+    }
+
+    c->data[c->count++] = arg;
+}
+
+int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
     if (!qbe_has_been_compiled(q)) {
         qbe_compile(q);
     }
@@ -194,7 +210,19 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output) {
         freopen("/dev/null", "w", stdout);
         freopen("/dev/null", "w", stderr);
 
-        execlp("as", "as", "-o", output, "-", NULL);
+        Cmd cmd = {0};
+        cmd_push(&cmd, "cc");
+        cmd_push(&cmd, "-o");
+        cmd_push(&cmd, output);
+        cmd_push(&cmd, "-x");
+        cmd_push(&cmd, "assembler");
+        cmd_push(&cmd, "-");
+        for (size_t i = 0; i < flags_count; i++) {
+            cmd_push(&cmd, flags[i]);
+        }
+        cmd_push(&cmd, NULL);
+
+        execvp(*cmd.data, (char *const *) cmd.data);
         exit(127);
     }
 

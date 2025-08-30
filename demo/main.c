@@ -11,117 +11,16 @@
 
 #define len(a) (sizeof(a) / sizeof(*(a)))
 
-#define DA_INIT_CAP 128
-
-#define da_free(l)                                                                                                     \
-    do {                                                                                                               \
-        free((l)->data);                                                                                               \
-        memset((l), 0, sizeof(*(l)));                                                                                  \
-    } while (0)
-
-#define da_push(l, v)                                                                                                  \
-    do {                                                                                                               \
-        if ((l)->count >= (l)->capacity) {                                                                             \
-            (l)->capacity = (l)->capacity == 0 ? DA_INIT_CAP : (l)->capacity * 2;                                      \
-            (l)->data = realloc((l)->data, (l)->capacity * sizeof(*(l)->data));                                        \
-            assert((l)->data);                                                                                         \
-        }                                                                                                              \
-                                                                                                                       \
-        (l)->data[(l)->count++] = (v);                                                                                 \
-    } while (0)
-
-// Temporary Allocator
-static char   temp_data[16 * 1000 * 1000];
-static size_t temp_count;
-
-void temp_reset(const void *p) {
-    assert((const char *) p >= temp_data && (const char *) p < temp_data + temp_count);
-    temp_count = (const char *) p - temp_data;
-}
-
-void *temp_alloc(size_t n) {
-    assert(temp_count + n <= len(temp_data));
-    char *result = &temp_data[temp_count];
-    temp_count += n;
-    return result;
-}
-
-char *temp_sprintf(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    const int n = vsnprintf(NULL, 0, fmt, args);
-    va_end(args);
-
-    assert(n >= 0);
-    char *result = temp_alloc(n + 1);
-
-    va_start(args, fmt);
-    vsnprintf(result, n + 1, fmt, args);
-    va_end(args);
-
-    return result;
-}
-
 // Executor
-typedef struct {
-    const char **data;
-    size_t       count;
-    size_t       capacity;
-} Cmd;
-
-int cmd_run(Cmd *c) {
-    int proc = fork();
-    if (proc < 0) {
-        return -1;
-    }
-
-    if (!proc) {
-        da_push(c, NULL);
-        execvp(*c->data, (char *const *) c->data);
-        exit(127);
-    }
-
-    c->count = 0;
-
-    int status = 0;
-    if (waitpid(proc, &status, 0) < 0) {
-        return 1;
-    }
-
-    if (WIFSIGNALED(status)) {
-        return 128 + WTERMSIG(status);
-    }
-
-    return WEXITSTATUS(status);
-}
-
-static void generate_executable(Cmd *cmd, Qbe *q, const char *name, const char **link_flags, size_t link_flags_count) {
-    int code = 0;
-
-    const char *object = temp_sprintf("%s.o", name);
-    code = qbe_generate(q, QBE_TARGET_DEFAULT, object);
-
-    if (!code) {
-        da_push(cmd, "cc");
-        da_push(cmd, "-o");
-        da_push(cmd, name);
-        da_push(cmd, object);
-        for (size_t i = 0; i < link_flags_count; i++) {
-            da_push(cmd, link_flags[i]);
-        }
-
-        code = cmd_run(cmd);
-        remove(object);
-    }
-
-    temp_reset(object);
+static void generate_executable(Qbe *q, const char *name, const char **link_flags, size_t link_flags_count) {
+    const int code = qbe_generate(q, QBE_TARGET_DEFAULT, name, link_flags, link_flags_count);
     if (code) {
         fprintf(stderr, "ERROR: Generation of '%s' exited abnormally with code %d\n", name, code);
     }
 }
 
 // Examples
-static void example_if(Cmd *cmd) {
+static void example_if(void) {
     Qbe *q = qbe_new();
 
     {
@@ -163,11 +62,11 @@ static void example_if(Cmd *cmd) {
     }
 
     // Compile
-    generate_executable(cmd, q, "example_if", NULL, 0);
+    generate_executable(q, "example_if", NULL, 0);
     qbe_free(q);
 }
 
-static void example_struct(Cmd *cmd) {
+static void example_struct(void) {
     Qbe *q = qbe_new();
 
     {
@@ -206,11 +105,11 @@ static void example_struct(Cmd *cmd) {
         "-L.",
         "-lvec3",
     };
-    generate_executable(cmd, q, "example_struct", flags, len(flags));
+    generate_executable(q, "example_struct", flags, len(flags));
     qbe_free(q);
 }
 
-static void example_cast(Cmd *cmd) {
+static void example_cast(void) {
     Qbe *q = qbe_new();
 
     {
@@ -223,11 +122,11 @@ static void example_cast(Cmd *cmd) {
     }
 
     // Compile
-    generate_executable(cmd, q, "example_cast", NULL, 0);
+    generate_executable(q, "example_cast", NULL, 0);
     qbe_free(q);
 }
 
-static void example_float(Cmd *cmd) {
+static void example_float(void) {
     Qbe *q = qbe_new();
 
     {
@@ -251,11 +150,11 @@ static void example_float(Cmd *cmd) {
     }
 
     // Compile
-    generate_executable(cmd, q, "example_float", NULL, 0);
+    generate_executable(q, "example_float", NULL, 0);
     qbe_free(q);
 }
 
-static void example_phi(Cmd *cmd) {
+static void example_phi(void) {
     Qbe *q = qbe_new();
 
     {
@@ -300,11 +199,11 @@ static void example_phi(Cmd *cmd) {
     }
 
     // Compile
-    generate_executable(cmd, q, "example_phi", NULL, 0);
+    generate_executable(q, "example_phi", NULL, 0);
     qbe_free(q);
 }
 
-static void example_while_with_debug(Cmd *cmd) {
+static void example_while_with_debug(void) {
     Qbe *q = qbe_new();
 
     {
@@ -365,11 +264,11 @@ static void example_while_with_debug(Cmd *cmd) {
     }
 
     // Compile
-    generate_executable(cmd, q, "example_while_with_debug", NULL, 0);
+    generate_executable(q, "example_while_with_debug", NULL, 0);
     qbe_free(q);
 }
 
-static void example_array(Cmd *cmd) {
+static void example_array(void) {
     Qbe *q = qbe_new();
 
     {
@@ -509,11 +408,11 @@ static void example_array(Cmd *cmd) {
     }
 
     // Compile
-    generate_executable(cmd, q, "example_array", NULL, 0);
+    generate_executable(q, "example_array", NULL, 0);
     qbe_free(q);
 }
 
-void example_extern_var(Cmd *cmd) {
+void example_extern_var(void) {
     Qbe *q = qbe_new();
     {
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
@@ -534,19 +433,17 @@ void example_extern_var(Cmd *cmd) {
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
 
-    generate_executable(cmd, q, "example_extern_var", NULL, 0);
+    generate_executable(q, "example_extern_var", NULL, 0);
     qbe_free(q);
 }
 
 int main(void) {
-    Cmd cmd = {0};
-    example_if(&cmd);
-    example_struct(&cmd);
-    example_cast(&cmd);
-    example_float(&cmd);
-    example_phi(&cmd);
-    example_while_with_debug(&cmd);
-    example_array(&cmd);
-    example_extern_var(&cmd);
-    da_free(&cmd);
+    example_if();
+    example_struct();
+    example_cast();
+    example_float();
+    example_phi();
+    example_while_with_debug();
+    example_array();
+    example_extern_var();
 }
