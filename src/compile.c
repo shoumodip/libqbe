@@ -240,6 +240,11 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
         return 1;
     }
 
+    printf("\n================================================================================\n");
+    printf("Source Input to QBE:\n");
+    fwrite(program.data, program.count, 1, stdout);
+    printf("================================================================================\n\n");
+
     qbe_parse(qbe_input, "<libqbe>", dbgfile, data, func);
     if (!dbg) {
         qbe_T.emitfin(qbe_output);
