@@ -31,6 +31,9 @@ jobs:
           cd demo
           make
           ./main debug
+          ./demo/example_var_init_builder debug
+          ./demo/example_var_init_builder
+          ./demo/example_var_init
 
       - name: Tests
         run: |
