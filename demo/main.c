@@ -453,12 +453,17 @@ static void example_var_init(void) {
 
         QbeNode *printVec3 = qbe_atom_extern_fn(q, qbe_sv_from_cstr("printVec3"));
         QbeCall *call = qbe_call_new(q, printVec3, qbe_type_basic(QBE_TYPE_I0));
-        qbe_call_add_arg(
-            q, call, qbe_build_load(q, main, qbe_build_load(q, main, (QbeNode *) p, p_type, false), v_type, false));
+        // qbe_call_add_arg(
+        //     q, call, qbe_build_load(q, main, qbe_build_load(q, main, (QbeNode *) p, p_type, false), v_type, false));
+        qbe_call_add_arg(q, call, qbe_build_load(q, main, (QbeNode *) v, v_type, false));
         qbe_build_call(q, main, call);
 
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
+
+    // qbe_compile(q);
+    // QbeSV sv = qbe_get_compiled_program(q);
+    // fwrite(sv.data, sv.count, 1, stdout);
 
     const char *flags[] = {
         "-L.",
