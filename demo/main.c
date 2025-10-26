@@ -442,8 +442,13 @@ static void example_var_init(void) {
     {
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
 
+        QbeStruct *Vec3 = qbe_struct_new(q, false);
+        qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
+        qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
+        qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
+
         size_t  v_data[] = {69, 420};
-        QbeType v_type = qbe_type_array(q, qbe_type_basic(QBE_TYPE_I64), 3);
+        QbeType v_type = qbe_type_struct(Vec3);
         QbeVar *v = qbe_var_new(q, qbe_sv_from_cstr("v"), v_type);
         qbe_var_init_add_data(q, v, &v_data, sizeof(v_data));
 
@@ -461,9 +466,9 @@ static void example_var_init(void) {
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
 
-    // qbe_compile(q);
-    // QbeSV sv = qbe_get_compiled_program(q);
-    // fwrite(sv.data, sv.count, 1, stdout);
+    qbe_compile(q);
+    QbeSV sv = qbe_get_compiled_program(q);
+    fwrite(sv.data, sv.count, 1, stdout);
 
     const char *flags[] = {
         "-L.",
