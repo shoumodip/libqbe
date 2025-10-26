@@ -157,7 +157,7 @@ void cmd_push(Cmd *c, const char *arg) {
     c->data[c->count++] = arg;
 }
 
-int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count) {
+int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flags, size_t flags_count, bool debug) {
     if (!qbe_has_been_compiled(q)) {
         qbe_compile(q);
     }
@@ -192,42 +192,47 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
         break;
     }
 
-    int pipefd[2];
-    if (pipe(pipefd) < 0) {
-        return 1;
-    }
-
-    const pid_t pid = fork();
-    if (pid < 0) {
-        return 1;
-    }
-
-    if (pid == 0) {
-        close(pipefd[1]);
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
-
-        Cmd cmd = {0};
-        cmd_push(&cmd, "cc");
-        cmd_push(&cmd, "-o");
-        cmd_push(&cmd, output);
-        cmd_push(&cmd, "-x");
-        cmd_push(&cmd, "assembler");
-        cmd_push(&cmd, "-");
-        for (size_t i = 0; i < flags_count; i++) {
-            cmd_push(&cmd, flags[i]);
+    pid_t pid = 0;
+    if (debug) {
+        qbe_output = stdout;
+    } else {
+        int pipefd[2];
+        if (pipe(pipefd) < 0) {
+            return 1;
         }
-        cmd_push(&cmd, NULL);
 
-        execvp(*cmd.data, (char *const *) cmd.data);
-        exit(127);
-    }
+        pid = fork();
+        if (pid < 0) {
+            return 1;
+        }
 
-    qbe_output = fdopen(pipefd[1], "w");
-    if (!qbe_output) {
-        return 1;
+        if (pid == 0) {
+            close(pipefd[1]);
+            dup2(pipefd[0], STDIN_FILENO);
+            close(pipefd[0]);
+
+            Cmd cmd = {0};
+            cmd_push(&cmd, "cc");
+            cmd_push(&cmd, "-o");
+            cmd_push(&cmd, output);
+            cmd_push(&cmd, "-x");
+            cmd_push(&cmd, "assembler");
+            cmd_push(&cmd, "-");
+            for (size_t i = 0; i < flags_count; i++) {
+                cmd_push(&cmd, flags[i]);
+            }
+            cmd_push(&cmd, NULL);
+
+            execvp(*cmd.data, (char *const *) cmd.data);
+            exit(127);
+        }
+
+        qbe_output = fdopen(pipefd[1], "w");
+        if (!qbe_output) {
+            return 1;
+        }
+        close(pipefd[0]);
     }
-    close(pipefd[0]);
 
     QbeSV program = qbe_get_compiled_program(q);
     FILE *qbe_input = fmemopen((void *) program.data, program.count, "r");
@@ -245,16 +250,21 @@ int qbe_generate(Qbe *q, QbeTarget target, const char *output, const char **flag
 
     signal(SIGPIPE, SIG_IGN);
     fclose(qbe_input);
-    fclose(qbe_output);
 
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0) {
-        return 1;
+    if (!debug) {
+        fclose(qbe_output);
+
+        int status = 0;
+        if (waitpid(pid, &status, 0) < 0) {
+            return 1;
+        }
+
+        if (WIFSIGNALED(status)) {
+            return 128 + WTERMSIG(status);
+        }
+
+        return WEXITSTATUS(status);
     }
 
-    if (WIFSIGNALED(status)) {
-        return 128 + WTERMSIG(status);
-    }
-
-    return WEXITSTATUS(status);
+    return 0;
 }

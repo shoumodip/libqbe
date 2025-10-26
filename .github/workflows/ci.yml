@@ -26,6 +26,12 @@ jobs:
         run: |
           make -j2
 
+      - name: Debug
+        run: |
+          cd demo
+          make
+          ./main debug
+
       - name: Tests
         run: |
           cd demo
