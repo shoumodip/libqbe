@@ -207,6 +207,7 @@ getint(void)
 		c = fgetc(inf);
 	do {
 		n = 10*n + (c - '0');
+        printf("%s:%d: getint(): Lexed digit %c; N = %ld\n", __FILE_NAME__, __LINE__, c, n);
 		c = fgetc(inf);
 	} while ('0' <= c && c <= '9');
 	ungetc(c, inf);
