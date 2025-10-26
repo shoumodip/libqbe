@@ -132,7 +132,7 @@ static void example_float(void) {
     {
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
 
-        QbeNode *x = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_F32), NULL);
+        QbeNode *x = (QbeNode *) qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_F32));
         qbe_build_store(q, main, x, qbe_atom_float(q, QBE_TYPE_F32, 420.69));
 
         QbeNode *printf = qbe_atom_extern_fn(q, qbe_sv_from_cstr("printf"));
@@ -207,7 +207,7 @@ static void example_while_with_debug(void) {
     Qbe *q = qbe_new();
 
     {
-        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64), NULL);
+        QbeNode *i = (QbeNode *) qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
 
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
         qbe_fn_set_debug(q, main, qbe_sv_from_cstr("while_with_debug.c"), 5);
@@ -274,8 +274,8 @@ static void example_array(void) {
     {
         const size_t n = 10;
 
-        QbeNode *i = qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64), NULL);
-        QbeNode *xs = qbe_var_new(q, (QbeSV) {0}, qbe_type_array(q, qbe_type_basic(QBE_TYPE_I64), n), NULL);
+        QbeNode *i = (QbeNode *) qbe_var_new(q, (QbeSV) {0}, qbe_type_basic(QBE_TYPE_I64));
+        QbeNode *xs = (QbeNode *) qbe_var_new(q, (QbeSV) {0}, qbe_type_array(q, qbe_type_basic(QBE_TYPE_I64), n));
 
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
 
@@ -412,7 +412,7 @@ static void example_array(void) {
     qbe_free(q);
 }
 
-void example_extern_var(void) {
+static void example_extern_var(void) {
     Qbe *q = qbe_new();
     {
         QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
@@ -437,6 +437,37 @@ void example_extern_var(void) {
     qbe_free(q);
 }
 
+static void example_var_init(void) {
+    Qbe *q = qbe_new();
+    {
+        QbeFn *main = qbe_fn_new(q, qbe_sv_from_cstr("main"), qbe_type_basic(QBE_TYPE_I32));
+
+        size_t  v_data[] = {69, 420};
+        QbeType v_type = qbe_type_array(q, qbe_type_basic(QBE_TYPE_I64), 3);
+        QbeVar *v = qbe_var_new(q, qbe_sv_from_cstr("v"), v_type);
+        qbe_var_init_add_data(q, v, &v_data, sizeof(v_data));
+
+        QbeType p_type = qbe_type_basic(QBE_TYPE_I64);
+        QbeVar *p = qbe_var_new(q, qbe_sv_from_cstr("p"), p_type);
+        qbe_var_init_add_node(q, p, (QbeNode *) v);
+
+        QbeNode *printVec3 = qbe_atom_extern_fn(q, qbe_sv_from_cstr("printVec3"));
+        QbeCall *call = qbe_call_new(q, printVec3, qbe_type_basic(QBE_TYPE_I0));
+        qbe_call_add_arg(
+            q, call, qbe_build_load(q, main, qbe_build_load(q, main, (QbeNode *) p, p_type, false), v_type, false));
+        qbe_build_call(q, main, call);
+
+        qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
+    }
+
+    const char *flags[] = {
+        "-L.",
+        "-lvec3",
+    };
+    generate_executable(q, "example_var_init", flags, len(flags));
+    qbe_free(q);
+}
+
 int main(void) {
     example_if();
     example_struct();
@@ -446,4 +477,5 @@ int main(void) {
     example_while_with_debug();
     example_array();
     example_extern_var();
+    example_var_init();
 }

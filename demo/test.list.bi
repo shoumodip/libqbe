@@ -1,4 +1,4 @@
-:i count 9
+:i count 10
 :b shell 6
 ./main
 :i returncode 0
@@ -86,4 +86,12 @@ First
 
 :b stderr 14
 Hello, world!
+
+:b shell 18
+./example_var_init
+:i returncode 0
+:b stdout 13
+(69, 420, 0)
+
+:b stderr 0
 

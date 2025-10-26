@@ -36,6 +36,7 @@ typedef struct Qbe     Qbe;
 typedef struct QbeNode QbeNode;
 
 typedef struct QbeFn     QbeFn;
+typedef struct QbeVar    QbeVar;
 typedef struct QbeCall   QbeCall;
 typedef struct QbeBlock  QbeBlock;
 typedef struct QbeField  QbeField;
@@ -137,8 +138,9 @@ QbeNode   *qbe_str_new(Qbe *q, QbeSV sv);
 QbeBlock  *qbe_block_new(Qbe *q);
 QbeStruct *qbe_struct_new(Qbe *q, bool packed);
 
-// TODO: Instead of an untyped `const void *data`, introduce a schema for describing the constant value of variables
-QbeNode *qbe_var_new(Qbe *q, QbeSV name, QbeType type, const void *data);
+QbeVar *qbe_var_new(Qbe *q, QbeSV name, QbeType type);
+void    qbe_var_init_add_data(Qbe *q, QbeVar *var, const void *data, size_t size);
+void    qbe_var_init_add_node(Qbe *q, QbeVar *var, QbeNode *node);
 
 // Call
 QbeCall *qbe_call_new(Qbe *q, QbeNode *value, QbeType return_type);

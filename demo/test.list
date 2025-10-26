@@ -7,3 +7,4 @@
 ./example_while_with_debug
 ./example_array
 ./example_extern_var
+./example_var_init

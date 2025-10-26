@@ -169,15 +169,25 @@ struct QbeFn {
     QbeBlock *current_block;
 };
 
-typedef struct {
+typedef struct QbeVarInit QbeVarInit;
+
+struct QbeVarInit {
+    QbeNode    *node;
+    const void *data;
+    size_t      size;
+    QbeVarInit *next;
+};
+
+struct QbeVar {
     QbeNode node;
 
     bool    local;
     QbeSV   str;
     QbeType type;
 
-    const void *data;
-} QbeVar;
+    QbeVarInit *init_head;
+    QbeVarInit *init_tail;
+};
 
 struct QbeBlock {
     QbeNode node;
@@ -1392,13 +1402,35 @@ QbeStruct *qbe_struct_new(Qbe *q, bool packed) {
     return st;
 }
 
-QbeNode *qbe_var_new(Qbe *q, QbeSV name, QbeType type, const void *data) {
+QbeVar *qbe_var_new(Qbe *q, QbeSV name, QbeType type) {
     QbeVar *var = (QbeVar *) qbe_node_alloc(q, QBE_NODE_VAR, qbe_type_basic(QBE_TYPE_I64));
     var->node.sv = name;
     var->type = type;
-    var->data = data;
     qbe_nodes_push(&q->vars, (QbeNode *) var);
-    return (QbeNode *) var;
+    return var;
+}
+
+static void qbe_var_init_push(QbeVar *var, QbeVarInit *init) {
+    if (var->init_tail) {
+        var->init_tail->next = init;
+    } else {
+        var->init_head = init;
+    }
+
+    var->init_tail = init;
+}
+
+void qbe_var_init_add_data(Qbe *q, QbeVar *var, const void *data, size_t size) {
+    QbeVarInit *init = memset(arena_alloc(&q->arena, sizeof(QbeVarInit)), 0, sizeof(QbeVarInit));
+    init->data = data;
+    init->size = size;
+    qbe_var_init_push(var, init);
+}
+
+void qbe_var_init_add_node(Qbe *q, QbeVar *var, QbeNode *node) {
+    QbeVarInit *init = memset(arena_alloc(&q->arena, sizeof(QbeVarInit)), 0, sizeof(QbeVarInit));
+    init->node = node;
+    qbe_var_init_push(var, init);
 }
 
 QbeCall *qbe_call_new(Qbe *q, QbeNode *value, QbeType return_type) {
@@ -1666,52 +1698,70 @@ void qbe_compile(Qbe *q) {
             qbe_sb_fmt(q, ", b 0 }\n");
         } else {
             QbeTypeInfo info = qbe_type_info(var->type);
-            if (var->data) {
+            if (var->init_head) {
                 qbe_sb_fmt(q, " = align %zu { ", info.align);
 
-                size_t        remaining = info.size;
-                const int8_t *data = var->data;
-                while (remaining) {
-                    if (*data == 0) {
-                        size_t count = 0;
-                        for (size_t i = 0; i < remaining && !data[i]; i++) {
-                            count++;
-                        }
+                size_t written = 0;
+                for (QbeVarInit *init = var->init_head; init; init = init->next) {
+                    if (init->node) {
+                        qbe_sb_fmt(q, "l ");
+                        qbe_sb_node_ssa(q, init->node);
+                        written += 8;
+                    } else {
+                        size_t        remaining = init->size;
+                        const int8_t *data = init->data;
+                        while (remaining) {
+                            if (*data == 0) {
+                                size_t count = 0;
+                                for (size_t i = 0; i < remaining && !data[i]; i++) {
+                                    count++;
+                                }
 
-                        if (count >= 8 || remaining < 8) {
-                            qbe_sb_fmt(q, "z %zu", count);
-                            data += count;
-                            remaining -= count;
+                                if (count >= 8 || remaining < 8) {
+                                    qbe_sb_fmt(q, "z %zu", count);
+                                    data += count;
+                                    remaining -= count;
+
+                                    if (remaining) {
+                                        qbe_sb_fmt(q, ", ");
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (remaining >= 8) {
+                                qbe_sb_fmt(q, "l %ld", *(int64_t *) data);
+                                data += 8;
+                                remaining -= 8;
+                            } else if (remaining >= 4) {
+                                qbe_sb_fmt(q, "w %d", *(int32_t *) data);
+                                data += 4;
+                                remaining -= 4;
+                            } else if (remaining >= 2) {
+                                qbe_sb_fmt(q, "h %d", *(int16_t *) data);
+                                data += 2;
+                                remaining -= 2;
+                            } else if (remaining >= 1) {
+                                qbe_sb_fmt(q, "b %d", *data);
+                                data += 1;
+                                remaining -= 1;
+                            }
 
                             if (remaining) {
                                 qbe_sb_fmt(q, ", ");
-                            } else {
-                                break;
                             }
                         }
+                        written += init->size;
                     }
 
-                    if (remaining >= 8) {
-                        qbe_sb_fmt(q, "l %ld", *(int64_t *) data);
-                        data += 8;
-                        remaining -= 8;
-                    } else if (remaining >= 4) {
-                        qbe_sb_fmt(q, "w %d", *(int32_t *) data);
-                        data += 4;
-                        remaining -= 4;
-                    } else if (remaining >= 2) {
-                        qbe_sb_fmt(q, "h %d", *(int16_t *) data);
-                        data += 2;
-                        remaining -= 2;
-                    } else if (remaining >= 1) {
-                        qbe_sb_fmt(q, "b %d", *data);
-                        data += 1;
-                        remaining -= 1;
-                    }
-
-                    if (remaining) {
+                    if (init->next) {
                         qbe_sb_fmt(q, ", ");
                     }
+                }
+
+                if (written < info.size) {
+                    qbe_sb_fmt(q, ", z %zu", info.size - written);
                 }
 
                 qbe_sb_fmt(q, " }\n");
