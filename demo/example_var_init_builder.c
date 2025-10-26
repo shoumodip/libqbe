@@ -34,9 +34,9 @@ static void example_var_init(void) {
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
 
-        size_t  v_data[] = {69, 420};
-        QbeType v_type = qbe_type_struct(Vec3);
-        QbeVar *v = qbe_var_new(q, qbe_sv_from_cstr("v"), v_type);
+        static size_t v_data[] = {69, 420};
+        QbeType       v_type = qbe_type_struct(Vec3);
+        QbeVar       *v = qbe_var_new(q, qbe_sv_from_cstr("v"), v_type);
         qbe_var_init_add_data(q, v, v_data, sizeof(v_data));
 
         QbeType p_type = qbe_type_basic(QBE_TYPE_I64);
