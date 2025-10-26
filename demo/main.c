@@ -447,18 +447,16 @@ static void example_var_init(void) {
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
         qbe_struct_add_field(q, Vec3, qbe_type_basic(QBE_TYPE_I64));
 
-        // size_t  v_data[] = {69, 420};
+        size_t  v_data[] = {69, 420};
         QbeType v_type = qbe_type_struct(Vec3);
         QbeVar *v = qbe_var_new(q, qbe_sv_from_cstr("v"), v_type);
-        // qbe_var_init_add_data(q, v, &v_data, sizeof(v_data));
+        qbe_var_init_add_data(q, v, &v_data, sizeof(v_data));
 
         // QbeType p_type = qbe_type_basic(QBE_TYPE_I64);
         // QbeVar *p = qbe_var_new(q, qbe_sv_from_cstr("p"), p_type);
         // qbe_var_init_add_node(q, p, (QbeNode *) v);
 
         QbeNode *newVec3 = qbe_atom_extern_fn(q, qbe_sv_from_cstr("newVec3"));
-        QbeNode *printVec3 = qbe_atom_extern_fn(q, qbe_sv_from_cstr("printVec3"));
-
         QbeCall *newVec3_call = qbe_call_new(q, newVec3, v_type);
         qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 69));
         qbe_call_add_arg(q, newVec3_call, qbe_atom_int(q, QBE_TYPE_I64, 420));
@@ -466,6 +464,7 @@ static void example_var_init(void) {
         qbe_build_call(q, main, newVec3_call);
         qbe_build_store(q, main, (QbeNode *) v, (QbeNode *) newVec3_call);
 
+        QbeNode *printVec3 = qbe_atom_extern_fn(q, qbe_sv_from_cstr("printVec3"));
         QbeCall *printVec3_call = qbe_call_new(q, printVec3, qbe_type_basic(QBE_TYPE_I0));
         // qbe_call_add_arg(
         //     q, call, qbe_build_load(q, main, qbe_build_load(q, main, (QbeNode *) p, p_type, false), v_type, false));
