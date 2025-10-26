@@ -30,10 +30,10 @@ jobs:
         run: |
           cd demo
           make
-          ./main debug
-          ./demo/example_var_init_builder debug
-          # ./demo/example_var_init_builder
-          # ./demo/example_var_init
+          # ./main debug
+          ./example_var_init_builder debug
+          ./example_var_init_builder
+          ./example_var_init
 
       - name: Tests
         run: |
