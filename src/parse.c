@@ -207,7 +207,6 @@ getint(void)
 		c = fgetc(inf);
 	do {
 		n = 10*n + (c - '0');
-        printf("%s:%d: getint(): Lexed digit %c; N = %ld\n", __FILE_NAME__, __LINE__, c, n);
 		c = fgetc(inf);
 	} while ('0' <= c && c <= '9');
 	ungetc(c, inf);
@@ -1132,10 +1131,9 @@ parsedat(void cb(Dat *), Lnk *lnk)
 				d.u.flts = tokval.flts;
 			else if (t == Tfltd)
 				d.u.fltd = tokval.fltd;
-			else if (t == Tint) {
+			else if (t == Tint)
 				d.u.num = tokval.num;
-                printf("%s:%d: parsedat() Parsed number: %ld\n", __FILE_NAME__, __LINE__, d.u.num);
-            } else if (t == Tglo)
+			else if (t == Tglo)
 				parsedatref(&d);
 			else if (t == Tstr)
 				parsedatstr(&d);

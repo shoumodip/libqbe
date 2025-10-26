@@ -26,20 +26,11 @@ jobs:
         run: |
           make -j2
 
-      - name: Debug
+      - name: Tests
         run: |
           cd demo
           make
-          # ./main debug
-          ./example_var_init_builder debug
-          ./example_var_init_builder
-          ./example_var_init
-
-      # - name: Tests
-      #   run: |
-      #     cd demo
-      #     make
-      #     ./rere.py replay test.list
+          ./rere.py replay test.list
 
       - name: Linux archive
         if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
