@@ -466,9 +466,9 @@ static void example_var_init(void) {
         qbe_build_return(q, main, qbe_atom_int(q, QBE_TYPE_I32, 0));
     }
 
-    qbe_compile(q);
-    QbeSV sv = qbe_get_compiled_program(q);
-    fwrite(sv.data, sv.count, 1, stdout);
+    // qbe_compile(q);
+    // QbeSV sv = qbe_get_compiled_program(q);
+    // fwrite(sv.data, sv.count, 1, stdout);
 
     const char *flags[] = {
         "-L.",
