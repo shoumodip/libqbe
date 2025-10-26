@@ -1131,9 +1131,10 @@ parsedat(void cb(Dat *), Lnk *lnk)
 				d.u.flts = tokval.flts;
 			else if (t == Tfltd)
 				d.u.fltd = tokval.fltd;
-			else if (t == Tint)
+			else if (t == Tint) {
 				d.u.num = tokval.num;
-			else if (t == Tglo)
+                printf("%s:%d: parsedat() Parsed number: %ld\n", __FILE_NAME__, __LINE__, d.u.num);
+            } else if (t == Tglo)
 				parsedatref(&d);
 			else if (t == Tstr)
 				parsedatstr(&d);

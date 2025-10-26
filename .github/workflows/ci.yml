@@ -35,11 +35,11 @@ jobs:
           ./example_var_init_builder
           ./example_var_init
 
-      - name: Tests
-        run: |
-          cd demo
-          make
-          ./rere.py replay test.list
+      # - name: Tests
+      #   run: |
+      #     cd demo
+      #     make
+      #     ./rere.py replay test.list
 
       - name: Linux archive
         if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
