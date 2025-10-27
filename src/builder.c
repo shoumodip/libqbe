@@ -1665,12 +1665,14 @@ void qbe_compile(Qbe *q) {
         size_t iota = 0;
 
         for (QbeNode *it = q->fns.head; it; it = it->next) {
+            it->ssa = QBE_SSA_GLOBAL;
             if (!it->sv.data) {
                 it->iota = iota++;
             }
         }
 
         for (QbeNode *it = q->vars.head; it; it = it->next) {
+            it->ssa = QBE_SSA_GLOBAL;
             if (!it->sv.data) {
                 it->iota = iota++;
             }
@@ -1682,6 +1684,7 @@ void qbe_compile(Qbe *q) {
     }
 
     for (QbeNode *it = q->vars.head; it; it = it->next) {
+        it->ssa = QBE_SSA_NIL;
         QbeVar *var = (QbeVar *) it;
 
         if (it->sv.data) {
@@ -1772,6 +1775,7 @@ void qbe_compile(Qbe *q) {
     }
 
     for (QbeNode *it = q->fns.head; it; it = it->next) {
+        it->ssa = QBE_SSA_NIL;
         QbeFn *fn = (QbeFn *) it;
 
         if (fn->debug_file.data) {
