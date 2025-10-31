@@ -655,8 +655,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "cgt");
             } else {
                 qbe_sb_fmt(q, "csgt");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_UGT:
@@ -664,8 +664,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "cgt");
             } else {
                 qbe_sb_fmt(q, "cugt");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_SGE:
@@ -673,8 +673,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "cge");
             } else {
                 qbe_sb_fmt(q, "csge");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_UGE:
@@ -682,8 +682,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "cge");
             } else {
                 qbe_sb_fmt(q, "cuge");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_SLT:
@@ -691,8 +691,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "clt");
             } else {
                 qbe_sb_fmt(q, "cslt");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_ULT:
@@ -700,8 +700,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "clt");
             } else {
                 qbe_sb_fmt(q, "cult");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_SLE:
@@ -709,8 +709,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "cle");
             } else {
                 qbe_sb_fmt(q, "csle");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_ULE:
@@ -718,8 +718,8 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
                 qbe_sb_fmt(q, "cle");
             } else {
                 qbe_sb_fmt(q, "cule");
-                qbe_sb_type_ssa(q, binary->lhs->type);
             }
+            qbe_sb_type_ssa(q, binary->lhs->type);
             break;
 
         case QBE_BINARY_EQ:
