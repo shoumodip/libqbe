@@ -761,7 +761,13 @@ static void qbe_compile_node(Qbe *q, QbeNode *n) {
         qbe_sb_indent(q);
         qbe_sb_node_ssa(q, n);
         qbe_sb_fmt(q, " =");
-        qbe_sb_type_ssa(q, n->type);
+
+        if (n->type.kind == QBE_TYPE_STRUCT) {
+            qbe_sb_fmt(q, "l");
+        } else {
+            qbe_sb_type_ssa(q, n->type);
+        }
+
         qbe_sb_fmt(q, " phi @.%zu ", a_block);
         qbe_sb_node_ssa(q, phi->a.value);
         qbe_sb_fmt(q, ", @.%zu ", b_block);
